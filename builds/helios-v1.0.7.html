@@ -1,0 +1,1332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="app-repo" content="helios">
+<meta name="app-version" content="1.0.7">
+<meta name="theme-color" content="#000000">
+<title>HELIOS</title>
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+button{touch-action:manipulation}
+.hide{display:none!important}
+#title{position:fixed;left:0;right:0;top:74%;transform:translateY(-50%);text-align:center;pointer-events:none;opacity:0;letter-spacing:1.4em;filter:blur(14px);transition:opacity .5s ease,letter-spacing 1.3s cubic-bezier(.15,.85,.2,1),filter .9s ease}
+#title.on{opacity:1;letter-spacing:.42em;filter:blur(0)}
+#title.out{opacity:0;transition:opacity .4s ease}
+#title h1{margin:0;font-weight:200;font-size:clamp(38px,11vw,112px);padding-left:.42em;text-shadow:0 0 24px rgba(255,170,90,.85),0 0 70px rgba(255,110,40,.55)}
+#title p{margin:.7em 0 0;font-size:clamp(9px,2.4vw,13px);letter-spacing:.45em;opacity:.7;text-transform:uppercase;padding-left:.45em}
+.overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:20px;box-sizing:border-box}
+#ui{background:radial-gradient(ellipse at center,rgba(0,0,0,.25),rgba(0,0,0,.8));-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.tag{font-size:12px;letter-spacing:.5em;opacity:.6;padding-left:.5em}
+.big{font:inherit;font-size:17px;letter-spacing:.18em;color:#fff;background:rgba(255,140,60,.14);border:1px solid rgba(255,170,100,.55);border-radius:999px;padding:16px 34px;cursor:pointer;box-shadow:0 0 30px rgba(255,120,40,.35),inset 0 0 20px rgba(255,140,60,.15)}
+.big:active,.btn:active{transform:scale(.97)}
+.link{font:inherit;font-size:13px;letter-spacing:.14em;color:rgba(255,255,255,.65);background:none;border:0;padding:10px;cursor:pointer}
+.sub{font-size:12px;opacity:.55;letter-spacing:.12em}
+#err{color:#f88;font-size:13px;max-width:80%;white-space:pre-wrap}
+#skipIntro{position:fixed;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right))}
+.btn{font:inherit;color:#fff;background:rgba(110,190,255,.08);border:1px solid rgba(150,210,255,.32);border-radius:14px;padding:12px 15px;font-size:14px;letter-spacing:.08em;cursor:pointer;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);min-width:52px}
+.btn:disabled{opacity:.3}
+.btn.hot{background:rgba(255,140,60,.15);border-color:rgba(255,170,100,.6);box-shadow:0 0 22px rgba(255,120,40,.28)}
+#hud{position:fixed;inset:0;pointer-events:none}
+#top{position:absolute;top:max(12px,env(safe-area-inset-top));left:0;right:0;text-align:center}
+#lvl{font-size:12px;letter-spacing:.32em;opacity:.9;padding-left:.32em}
+#prog{font-size:11px;opacity:.55;margin-top:5px;letter-spacing:.2em}
+#bar{position:absolute;left:0;right:0;bottom:max(14px,env(safe-area-inset-bottom));display:flex;gap:10px;justify-content:center;pointer-events:auto}
+#hint{position:absolute;left:18px;right:18px;bottom:calc(max(14px,env(safe-area-inset-bottom)) + 62px);text-align:center;font-size:12px;opacity:.62;line-height:1.55}
+#menu,#win{background:radial-gradient(ellipse at center,rgba(0,0,0,0),rgba(0,0,0,.72))}
+.h2{margin:0;font-weight:200;font-size:clamp(34px,10vw,84px);letter-spacing:.42em;padding-left:.42em;text-shadow:0 0 24px rgba(255,170,90,.8),0 0 60px rgba(255,110,40,.45)}
+.pick{display:flex;align-items:center;gap:16px;font-size:13px;letter-spacing:.24em}
+.pick .btn{padding:8px 14px}
+#ver{position:fixed;right:max(10px,env(safe-area-inset-right));top:max(8px,env(safe-area-inset-top));font-size:10px;opacity:.35;letter-spacing:.1em;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title"><h1>HELIOS</h1><p id="sub">real-time · raymarched · one file</p></div>
+
+<div id="hud" class="hide">
+  <div id="top"><div id="lvl">LEVEL 1</div><div id="prog">0 / 5 LOCKED</div></div>
+  <div id="hint">Every ring carries all the rings inside it · double-tap or <b>Flip</b> to swing one over<br>Line a ring up with the one around it to join · line up with the frame to lock · <b>⟲</b> back</div>
+  <div id="bar">
+    <button class="btn" id="bTurn" title="Turn the machine around">⟲</button>
+    <button class="btn hot" id="bFlip" disabled>⇆ FLIP</button>
+    <button class="btn" id="bMenu" title="Menu">☰</button>
+  </div>
+</div>
+
+<div id="menu" class="overlay hide">
+  <div class="tag">THE GATE</div>
+  <div class="h2">HELIOS</div>
+  <div class="pick"><button class="btn" id="mPrev">‹</button><span id="mLvl">LEVEL 1 · 5 RINGS</span><button class="btn" id="mNext">›</button></div>
+  <button class="big" id="mStart">▶&nbsp; START</button>
+  <button class="link" id="mIntro">Replay intro</button>
+</div>
+
+<div id="win" class="overlay hide">
+  <div class="tag" id="wTag">LEVEL 1 COMPLETE</div>
+  <div class="h2" id="wTitle">GATE OPEN</div>
+  <button class="big" id="wNext">NEXT GATE ›</button>
+  <button class="link" id="wMenu">Menu</button>
+</div>
+
+<div id="ui" class="overlay">
+  <div class="tag">HELIOS</div>
+  <button class="big" id="play">▶&nbsp; PLAY</button>
+  <div class="sub">sound on</div>
+  <button class="link" id="skipStart">Skip intro ›</button>
+  <div id="err"></div>
+</div>
+<button class="link hide" id="skipIntro">Skip ›</button>
+<div id="ver">v1.0.7</div>
+
+<script>
+const VERSION = '1.0.7';
+
+const VS = `
+attribute vec2 p;
+varying vec2 vUv;
+void main(){ vUv = p*0.5+0.5; gl_Position = vec4(p,0.0,1.0); }
+`;
+
+/* ---------------- SCENE: raymarched sculpture over a sunset ocean ---------------- */
+const FS_SCENE = `
+precision highp float;
+uniform vec2 uRes;
+uniform float uT;
+uniform float uImp;
+uniform vec3 uRo;
+uniform vec3 uTa;
+uniform vec3 uSun;
+uniform float uNight;
+#define SUN uSun
+#define C vec3(0.0,1.35,0.0)
+float gTh;
+float gCore;
+
+mat2 rot(float a){ float c=cos(a), s=sin(a); return mat2(c,-s,s,c); }
+float hash(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
+float noise(vec2 p){
+  vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
+  float a=hash(i), b=hash(i+vec2(1.0,0.0)), c=hash(i+vec2(0.0,1.0)), d=hash(i+vec2(1.0,1.0));
+  return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);
+}
+float fbm(vec2 p){
+  float v=0.0, a=0.5;
+  for(int i=0;i<5;i++){ v+=a*noise(p); p=rot(0.5)*p*2.03+vec2(1.7,9.2); a*=0.5; }
+  return v;
+}
+
+vec3 skyBase(vec3 rd){
+  float y=rd.y, N=uNight;
+  vec3 hor=mix(vec3(1.05,0.42,0.22),vec3(0.10,0.16,0.28),N);
+  vec3 mid=mix(vec3(0.48,0.20,0.48),vec3(0.04,0.06,0.16),N);
+  vec3 top=mix(vec3(0.03,0.04,0.16),vec3(0.005,0.008,0.03),N);
+  vec3 c=mix(hor,mid,smoothstep(0.0,0.2,y));
+  c=mix(c,top,smoothstep(0.15,0.75,y));
+  c=mix(c,hor*0.55,1.0-smoothstep(-0.08,0.0,y));
+  float s=max(dot(rd,SUN),0.0);
+  c+=vec3(1.0,0.55,0.25)*pow(s,6.0)*0.55*(1.0-0.75*N);
+  c+=vec3(1.0,0.72,0.42)*pow(s,48.0)*1.2*(1.0-0.75*N);
+  c+=vec3(0.9,0.25,0.1)*pow(s,4.0)*N*0.45*(1.0-smoothstep(0.0,0.15,y));
+  return c;
+}
+vec3 aurora(vec3 rd){
+  if(rd.y<=0.0) return vec3(0.0);
+  float az=atan(rd.x,-rd.z);
+  vec3 c=vec3(0.0);
+  for(int i=0;i<3;i++){
+    float fi=float(i);
+    float base=0.15+fi*0.09+0.06*sin(az*2.3+fi*1.7+uT*0.6)+0.04*noise(vec2(az*4.0+fi*3.1,uT*0.4));
+    float d=rd.y-base;
+    float curtain=smoothstep(-0.015,0.0,d)*exp(-max(d,0.0)*9.0);
+    float rays=0.5+0.5*noise(vec2(az*38.0+fi*11.0,uT*0.8));
+    rays=rays*rays;
+    vec3 g=mix(vec3(0.1,1.0,0.5),vec3(0.8,0.2,1.0),clamp(d*6.0,0.0,1.0));
+    c+=g*curtain*rays*(0.8-fi*0.2);
+  }
+  return c*smoothstep(0.0,0.08,rd.y);
+}
+vec3 sky(vec3 rd){
+  vec3 c=skyBase(rd);
+  float s=max(dot(rd,SUN),0.0);
+  c+=vec3(1.0,0.92,0.8)*smoothstep(0.9993,0.9997,s)*10.0;
+  if(rd.y>0.0){
+    vec2 cp=rd.xz/(rd.y+0.08)*0.9+vec2(uT*0.06,uT*0.02);
+    float n=fbm(cp);
+    float cl=smoothstep(0.48,0.82,n)*smoothstep(0.0,0.12,rd.y)*(1.0-smoothstep(0.5,0.9,rd.y));
+    vec3 cc=mix(vec3(0.30,0.14,0.28),vec3(1.5,0.7,0.35),pow(s,3.0));
+    cc=mix(cc,vec3(0.03,0.04,0.08),uNight);
+    c=mix(c,cc,cl*0.8);
+    vec2 sp=floor(rd.xz/(rd.y+0.25)*140.0);
+    float st=step(0.9975,hash(sp));
+    c+=st*(smoothstep(0.3,0.7,rd.y)*0.8+uNight*smoothstep(0.05,0.3,rd.y)*1.5)*(1.0-cl*0.9);
+    c+=aurora(rd)*uNight*1.4*(1.0-cl*0.6);
+  }
+  return c;
+}
+
+float sdTorus(vec3 p, vec2 t){ vec2 q=vec2(length(p.xz)-t.x,p.y); return length(q)-t.y; }
+
+vec2 map(vec3 p){
+  vec3 q=p-C;
+  q.xz*=rot(uT*0.6);
+  q.xy*=rot(0.4+uT*0.25);
+  float sphR=1.0+0.6*smoothstep(8.6,9.5,uT);
+  float sph=length(q)-sphR;
+  float fq=4.6/sphR;
+  float g=dot(sin(q*fq),cos(q.zxy*fq))*0.2*sphR;
+  vec2 r=vec2(max(sph,abs(g)-gTh),1.0);
+  float core=length(q)-0.3*clamp(gCore,0.0,1.3)-0.4*smoothstep(7.8,8.6,uT);
+  if(core<r.x) r=vec2(core,2.0);
+  float spin=3.0*smoothstep(6.5,9.5,uT);
+  float rs=1.0+0.08*smoothstep(8.6,9.5,uT);
+  vec3 a=q; a.xy*=rot(1.1); a.xz*=rot(uT*1.3+spin);
+  vec3 b=q; b.yz*=rot(-0.9); b.xz*=rot(-uT*1.0-spin);
+  float tr=min(sdTorus(a,vec2(1.55*rs,0.025)),sdTorus(b,vec2(1.85*rs,0.018)));
+  if(tr<r.x) r=vec2(tr,3.0);
+  return r;
+}
+
+vec3 calcN(vec3 p){
+  vec2 e=vec2(0.0015,-0.0015);
+  return normalize(e.xyy*map(p+e.xyy).x+e.yyx*map(p+e.yyx).x+e.yxy*map(p+e.yxy).x+e.xxx*map(p+e.xxx).x);
+}
+float calcAO(vec3 p, vec3 n){
+  float o=0.0, s=1.0;
+  for(int i=0;i<5;i++){ float h=0.02+0.08*float(i); float d=map(p+n*h).x; o+=(h-d)*s; s*=0.75; }
+  return clamp(1.0-2.5*o,0.0,1.0);
+}
+bool bsph(vec3 ro, vec3 rd, out float t0, out float t1){
+  vec3 oc=ro-C; float b=dot(oc,rd); float c=dot(oc,oc)-4.2; float h=b*b-c;
+  if(h<0.0){ t0=0.0; t1=0.0; return false; }
+  h=sqrt(h); t0=-b-h; t1=-b+h; return t1>0.0;
+}
+vec2 march(vec3 ro, vec3 rd, int n){
+  float t0, t1;
+  if(!bsph(ro,rd,t0,t1)) return vec2(-1.0);
+  float t=max(t0,0.0);
+  for(int i=0;i<110;i++){
+    if(i>=n) break;
+    vec2 h=map(ro+rd*t);
+    if(h.x<0.0012*t+0.0005) return vec2(t,h.y);
+    t+=h.x*0.6;
+    if(t>t1) break;
+  }
+  return vec2(-1.0);
+}
+
+vec3 shadeObj(vec3 p, vec3 rd, float m){
+  vec3 n=calcN(p);
+  vec3 q=p-C;
+  float ao=calcAO(p,n);
+  vec3 R=reflect(rd,n);
+  float fre=pow(1.0-max(dot(-rd,n),0.0),5.0);
+  vec3 env=sky(R);
+  vec3 L=C-p; float dl=length(L); L/=dl;
+  float cl=gCore*max(dot(n,L),0.0)/(1.0+dl*dl*6.0)*6.0;
+  float sunSpec=pow(max(dot(R,SUN),0.0),60.0);
+  vec3 col;
+  if(m<1.5){
+    float th=dot(n,-rd);
+    vec3 film=0.55+0.45*cos(6.2832*(vec3(0.0,0.33,0.67)+th*1.4+q.y*0.3+uT*0.1));
+    col=env*mix(film*0.9,vec3(1.0),fre)*ao;
+    col+=film*vec3(1.0,0.6,0.35)*max(dot(n,SUN),0.0)*0.25*ao;
+    col+=vec3(1.0,0.6,0.25)*cl*1.5;
+    col+=vec3(1.0,0.8,0.6)*sunSpec*3.0;
+  } else if(m<2.5){
+    col=vec3(2.0,1.3,0.8)*(1.5+gCore)+vec3(1.0,0.4,0.1)*fre*4.0;
+  } else {
+    col=env*vec3(1.0,0.75,0.4)*(0.6+0.4*fre)+vec3(1.0,0.85,0.6)*pow(max(dot(R,SUN),0.0),80.0)*4.0;
+    col+=vec3(1.0,0.6,0.25)*(cl+uImp*2.0);
+  }
+  return col;
+}
+
+vec3 glowAlong(vec3 o, vec3 d, float tmax){
+  float tc=clamp(dot(C-o,d),0.0,tmax);
+  float dc=length(o+d*tc-C);
+  return vec3(1.0,0.5,0.22)*gCore*0.045/(dc*dc+0.015);
+}
+
+float waterH(vec2 p){
+  return noise(p*1.3+vec2(uT*0.5,uT*0.3))*0.55
+       + noise(p*3.1-vec2(uT*0.8,-uT*0.2))*0.3
+       + noise(p*7.7+vec2(uT*1.3,uT*0.9))*0.15;
+}
+
+void main(){
+  vec2 uv=(gl_FragCoord.xy-0.5*uRes)/uRes.y;
+  gTh=mix(0.65,0.04,smoothstep(0.8,2.4,uT))-0.025*smoothstep(8.6,9.5,uT);
+  float charge=smoothstep(6.5,8.6,uT);
+  gCore=smoothstep(0.9,2.1,uT)*(1.0+(0.12+0.35*charge)*sin(uT*(11.0+8.0*charge)))+0.5*smoothstep(7.6,8.6,uT)+uImp*1.8;
+
+  vec3 ro=uRo;
+  vec3 f=normalize(uTa-ro);
+  vec3 r=normalize(cross(f,vec3(0.0,1.0,0.0)));
+  vec3 u=cross(r,f);
+  vec3 rd=normalize(uv.x*r+uv.y*u+1.6*f);
+
+  vec3 col;
+  float tH=1e9;
+  float tw=1e9;
+  if(rd.y<0.0) tw=-ro.y/rd.y;
+  vec2 h=march(ro,rd,100);
+
+  if(h.x>0.0 && h.x<tw){
+    tH=h.x;
+    col=shadeObj(ro+rd*h.x,rd,h.y);
+  } else if(rd.y<0.0){
+    vec3 p=ro+rd*tw; tH=tw;
+    float amp=0.11*exp(-tw*0.045);
+    float e=0.04;
+    float h0=waterH(p.xz), hx=waterH(p.xz+vec2(e,0.0)), hz=waterH(p.xz+vec2(0.0,e));
+    vec3 n=normalize(vec3(-(hx-h0)*amp/e,1.0,-(hz-h0)*amp/e));
+    vec3 R=reflect(rd,n); R.y=abs(R.y);
+    float fre=0.02+0.98*pow(1.0-max(dot(-rd,n),0.0),5.0);
+    vec2 rh=march(p,R,56);
+    vec3 refl;
+    if(rh.x>0.0){ refl=shadeObj(p+R*rh.x,R,rh.y); refl+=glowAlong(p,R,rh.x); }
+    else { refl=sky(R); refl+=glowAlong(p,R,1e9); }
+    vec3 Lc=C-p; float dl=length(Lc);
+    float pool=gCore*max(dot(n,Lc/dl),0.0)/(1.0+dl*dl*0.8);
+    float rr=length(p.xz-C.xz);
+    float ring=0.0;
+    if(uT>3.3) ring+=exp(-pow((rr-(uT-3.3)*7.5)*1.6,2.0))*exp(-(uT-3.3)*1.1);
+    if(uT>8.6) ring+=1.6*exp(-pow((rr-(uT-8.6)*9.0)*1.3,2.0))*exp(-(uT-8.6)*0.9);
+    col=vec3(0.005,0.02,0.04)+refl*fre+vec3(1.0,0.5,0.2)*pool*0.35;
+    col+=vec3(1.0,0.75,0.45)*pow(max(dot(R,SUN),0.0),350.0)*12.0*(1.0-uNight);
+    col+=vec3(1.0,0.6,0.3)*ring*2.0;
+  } else {
+    col=sky(rd);
+  }
+
+  if(tH<1e8) col=mix(col,skyBase(rd),1.0-exp(-tH*0.03));
+  col+=glowAlong(ro,rd,tH);
+
+  col*=0.9;
+  col=(col*(2.51*col+0.03))/(col*(2.43*col+0.59)+0.14);
+  col=pow(clamp(col,0.0,1.0),vec3(0.4545));
+  gl_FragColor=vec4(col,1.0);
+}
+`;
+
+/* ---------------- POST: bloom, god rays, anamorphic streak, CA, grain ---------------- */
+const FS_POST = `
+precision highp float;
+uniform sampler2D uTex;
+uniform vec2 uRes;
+uniform vec2 uSun;
+uniform float uSunVis;
+uniform float uT;
+uniform float uFade;
+uniform float uFlash;
+uniform float uVig;
+varying vec2 vUv;
+vec3 br(vec2 uv){ vec3 c=texture2D(uTex,uv).rgb; return max(c-0.7,0.0)*3.3; }
+void main(){
+  vec2 uv=vUv; vec2 d=uv-0.5; float asp=uRes.x/uRes.y;
+  float ca=0.0035+uFlash*0.02;
+  vec3 col=vec3(texture2D(uTex,uv-d*ca).r,texture2D(uTex,uv).g,texture2D(uTex,uv+d*ca).b);
+
+  vec3 bl=vec3(0.0);
+  for(int i=0;i<16;i++){
+    float fi=float(i); float a=fi*2.39996; float r=sqrt(fi+0.5)*0.016;
+    bl+=br(uv+vec2(cos(a)/asp,sin(a))*r);
+  }
+  col+=bl/16.0*vec3(1.0,0.75,0.55)*0.8;
+
+  vec3 st=vec3(0.0);
+  for(int i=-6;i<=6;i++){ float fi=float(i); st+=br(uv+vec2(fi*0.03,0.0))*(1.0-abs(fi)/7.0); }
+  col+=st/13.0*vec3(0.35,0.55,1.0)*0.6;
+
+  if(uSunVis>0.001){
+    vec2 dir=(uSun-uv)*(0.85/40.0); vec2 sp=uv; float w=1.0; vec3 g=vec3(0.0);
+    for(int i=0;i<40;i++){ sp+=dir; g+=br(sp)*w; w*=0.965; }
+    col+=g/40.0*vec3(1.0,0.68,0.38)*1.6*uSunVis;
+  }
+
+  col*=mix(1.0,0.35+0.55*uVig,smoothstep(0.35,1.0,length(d)*1.4));
+  float n=fract(sin(dot(uv*uRes+uT*60.0,vec2(12.9898,78.233)))*43758.5453);
+  col+=(n-0.5)*0.035;
+  col=col*uFade+vec3(uFlash);
+  gl_FragColor=vec4(col,1.0);
+}
+`;
+
+
+
+/* ---------------- GAME SHADERS ---------------- */
+const NOISE = `
+float hash(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
+float noise(vec2 p){
+  vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
+  float a=hash(i), b=hash(i+vec2(1.0,0.0)), c=hash(i+vec2(0.0,1.0)), d=hash(i+vec2(1.0,1.0));
+  return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);
+}
+mat2 rot(float a){ float c=cos(a), s=sin(a); return mat2(c,-s,s,c); }
+float fbm(vec2 p){
+  float v=0.0, a=0.5;
+  for(int i=0;i<5;i++){ v+=a*noise(p); p=rot(0.5)*p*2.03+vec2(1.7,9.2); a*=0.5; }
+  return v;
+}
+`;
+
+const FS_BG = `
+precision highp float;
+uniform vec2 uRes;
+uniform float uT;
+uniform float uPsi;
+uniform float uWin;
+` + NOISE + `
+void main(){
+  vec2 uv=(gl_FragCoord.xy-0.5*uRes)/uRes.y;
+  vec2 q=uv+vec2(uPsi*0.25,0.0);
+  vec3 col=mix(vec3(0.004,0.006,0.018),vec3(0.02,0.015,0.05),clamp(uv.y+0.6,0.0,1.0));
+  float n=fbm(q*2.2+vec2(uT*0.015,0.0));
+  float m=fbm(q*3.7-vec2(2.7,uT*0.01));
+  col+=vec3(0.30,0.07,0.32)*pow(n,3.0)*1.3;
+  col+=vec3(0.03,0.22,0.26)*pow(m,4.0)*2.0;
+  vec2 sg=floor((q+7.0)*uRes.y*0.35);
+  float sh=hash(sg);
+  col+=vec3(0.9,0.95,1.0)*step(0.9965,sh)*(0.55+0.45*sin(uT*2.0+sh*60.0));
+  float r=length(uv);
+  col+=vec3(1.0,0.5,0.2)*(0.10+uWin*0.5)/(1.0+r*r*10.0);
+  gl_FragColor=vec4(col,1.0);
+}
+`;
+
+const VS_RING = `
+attribute vec3 p;
+uniform mat4 uVP;
+uniform mat3 uRot;
+uniform vec2 uRad;
+uniform float uThick;
+varying vec2 vLocal;
+varying vec3 vN;
+varying vec3 vW;
+varying float vKind;
+void main(){
+  float a=p.x*6.2831853;
+  vec2 dir=vec2(cos(a),sin(a));
+  float k=p.z;
+  vec3 q; vec3 n;
+  if(k<0.5){ q=vec3(dir*mix(uRad.x,uRad.y,p.y),uThick); n=vec3(0.0,0.0,1.0); }
+  else if(k<1.5){ q=vec3(dir*mix(uRad.x,uRad.y,p.y),-uThick); n=vec3(0.0,0.0,-1.0); }
+  else if(k<2.5){ q=vec3(dir*uRad.y,mix(-uThick,uThick,p.y)); n=vec3(dir,0.0); }
+  else { q=vec3(dir*uRad.x,mix(-uThick,uThick,p.y)); n=vec3(-dir,0.0); }
+  vLocal=q.xy; vKind=k;
+  vec3 w=uRot*q; vW=w; vN=uRot*n;
+  gl_Position=uVP*vec4(w,1.0);
+}
+`;
+
+const FS_RING = `
+precision highp float;
+uniform vec4 uS1;
+uniform vec4 uS2;
+uniform float uT;
+uniform vec2 uRad;
+uniform float uType;
+uniform float uLock;
+uniform float uSel;
+uniform float uPulse;
+uniform float uJoinP;
+uniform vec2 uFuse;
+uniform float uWin;
+uniform vec2 uAxis;
+uniform vec3 uCam;
+uniform vec3 uL;
+varying vec2 vLocal;
+varying vec3 vN;
+varying vec3 vW;
+varying float vKind;
+` + NOISE + `
+float sdTri(vec2 p, float r){
+  const float k=1.7320508;
+  p.x=abs(p.x)-r; p.y=p.y+r/k;
+  if(p.x+k*p.y>0.0) p=vec2(p.x-k*p.y,-k*p.x-p.y)/2.0;
+  p.x-=clamp(p.x,-2.0*r,0.0);
+  return -length(p)*sign(p.y);
+}
+
+/* Side A: cosmic nebula with planet, spiral arms and light beams */
+vec3 imgA(vec2 p){
+  float r=length(p), a=atan(p.y,p.x);
+  vec2 q=p*2.0+uS1.xy*20.0;
+  float w1=fbm(q*0.9+vec2(3.1,1.7));
+  float n=fbm(q+vec2(w1*1.8,-w1*1.2));
+  vec3 c1=0.5+0.5*cos(6.2832*(uS2.x+vec3(0.0,0.12,0.25)+n*0.6));
+  vec3 col=c1*pow(n,2.2)*1.6;
+  col*=0.55+0.45*(1.0-smoothstep(0.0,1.2,r));
+  float arm=0.5+0.5*sin(2.0*a+log(r+0.03)*(3.0+uS2.y*4.0)+uS2.z*6.28);
+  col+=vec3(1.0,0.75,0.55)*pow(arm,6.0)*(1.0-smoothstep(0.1,1.05,r))*0.55*(0.6+0.8*n);
+  col*=0.65+0.35*smoothstep(0.25,0.55,fbm(q*2.3-7.0));
+  vec2 sg=floor(p*90.0);
+  float sh=hash(sg+uS1.zw*50.0);
+  col+=vec3(1.0,0.95,0.9)*step(0.985,sh)*(0.6+0.8*hash(sg*1.3));
+  for(int i=0;i<3;i++){
+    float fi=float(i);
+    float ph=(uS1.w+fi*0.618)*3.14159;
+    float off=(hash(vec2(fi,uS2.w*91.0))-0.5)*1.3;
+    float dd=abs(dot(p,vec2(cos(ph),sin(ph)))-off);
+    vec3 bc=0.6+0.4*cos(6.2832*(uS2.x+fi*0.3+vec3(0.0,0.33,0.67)));
+    col+=bc*(exp(-dd*140.0)*0.9+exp(-dd*18.0)*0.12);
+  }
+  vec2 pc=(uS1.xy-0.5)*1.05;
+  float pr=0.15+0.08*uS1.z;
+  vec2 dp=(p-pc)/pr;
+  float d2=dot(dp,dp);
+  if(d2<1.0){
+    vec3 pn=vec3(dp,sqrt(1.0-d2));
+    float li=max(dot(pn,normalize(vec3(-0.5,0.6,0.62))),0.0);
+    float band=0.5+0.5*sin(dp.y*14.0+fbm(dp*3.0+uS2.zw*9.0)*4.0);
+    vec3 pcol=mix(vec3(0.75,0.4,0.25),vec3(0.95,0.85,0.7),band);
+    pcol=mix(pcol,0.5+0.5*cos(6.2832*(uS2.x+0.5+vec3(0.0,0.1,0.2))),0.35);
+    col=pcol*(li*1.15+0.04)+vec3(1.0,0.6,0.4)*pow(1.0-pn.z,3.0)*0.6*li;
+  } else {
+    col+=vec3(0.9,0.6,0.5)*exp(-(sqrt(d2)-1.0)*6.0)*0.35;
+  }
+  vec2 pr2=rot(0.4+uS2.y*1.5)*(p-pc);
+  float el=length(pr2*vec2(1.0,3.2))/pr;
+  float rg=(1.0-smoothstep(0.0,0.06,abs(el-1.7)));
+  if(d2<1.0 && pr2.y>0.0) rg=0.0;
+  col+=vec3(0.95,0.85,0.7)*rg*0.7;
+  return col;
+}
+
+/* Side B: alien circuitry sigil with triangle, dashed rings, rune band and an eye */
+vec3 imgB(vec2 p){
+  float r=length(p), a=atan(p.y,p.x);
+  vec3 col=mix(vec3(0.0,0.03,0.05),vec3(0.01,0.12,0.15),fbm(p*3.0+uS2.zw*7.0));
+  vec2 g=p*10.0; vec2 id=floor(g); vec2 f=fract(g)-0.5;
+  float h=hash(id+uS2.zw*31.0);
+  float tr=h<0.5?abs(f.x):abs(f.y);
+  float on=step(0.45,hash(id*1.7+uS1.xy*13.0));
+  col+=vec3(0.0,0.55,0.6)*(1.0-smoothstep(0.02,0.07,tr))*on*0.55;
+  col+=vec3(0.2,1.0,0.9)*(1.0-smoothstep(0.06,0.12,length(f)))*step(0.82,h)*0.8;
+  for(int i=0;i<4;i++){
+    float fi=float(i);
+    float rk=0.25+fi*0.2+0.05*hash(vec2(fi,uS1.z*17.0));
+    float dd=abs(r-rk);
+    float nd=6.0+floor(hash(vec2(fi*3.1,uS2.y*9.0))*10.0);
+    float dash=step(0.35,fract(a/6.2832*nd+hash(vec2(fi,uS2.x*5.0))));
+    col+=vec3(0.3,0.9,1.0)*exp(-dd*220.0)*dash*0.9;
+  }
+  float tri=sdTri(rot(uS2.w*6.2832)*p,0.52);
+  col+=vec3(1.0,0.3,0.8)*(exp(-abs(tri)*120.0)*0.9+exp(-abs(tri)*15.0)*0.1);
+  float bandD=abs(r-0.9)-0.045;
+  float band=1.0-smoothstep(0.0,0.012,bandD);
+  vec2 rp=vec2(a/6.2832*48.0,(r-0.855)/0.09*3.0);
+  vec2 rid=floor(rp); vec2 rf=fract(rp);
+  float glyph=step(0.5,hash(rid+uS1.w*40.0))*step(0.15,rf.x)*step(rf.x,0.85)*step(0.15,rf.y)*step(rf.y,0.85);
+  col=mix(col,vec3(0.6,1.0,0.9)*0.85,glyph*band);
+  col+=vec3(0.2,0.6,0.6)*exp(-abs(bandD)*300.0)*0.5;
+  vec2 ec=(uS2.zw-0.5)*0.8;
+  vec2 ep=rot(uS1.z*3.0)*(p-ec);
+  float ew=0.24, eh=0.11;
+  float lid=abs(ep.y)-eh*(1.0-(ep.x*ep.x)/(ew*ew));
+  if(abs(ep.x)<ew && lid<0.0){
+    col=vec3(0.85,0.9,0.85)*0.7;
+    float ir=length(ep);
+    col=mix(col,vec3(0.9,0.2,0.7)*1.2,1.0-smoothstep(0.068,0.075,ir));
+    col=mix(col,vec3(0.0),(1.0-smoothstep(0.02,0.03,abs(ep.x)))*step(ir,0.07));
+  }
+  col+=vec3(0.9,0.3,0.8)*exp(-abs(lid)*80.0)*step(abs(ep.x),ew)*0.6;
+  for(int i=0;i<2;i++){
+    float fi=float(i);
+    float ph=(uS2.y+fi*0.41)*3.14159*2.0;
+    float off=(hash(vec2(fi*7.0,uS1.x*33.0))-0.5)*1.2;
+    float dd=abs(dot(p,vec2(cos(ph),sin(ph)))-off);
+    col+=vec3(1.0,0.45,0.9)*exp(-dd*160.0)*0.8;
+  }
+  return col;
+}
+
+vec3 env(vec3 d){
+  return mix(vec3(0.04,0.05,0.09),vec3(0.55,0.5,0.7),clamp(d.y*0.5+0.5,0.0,1.0))
+       + vec3(1.0,0.6,0.3)*pow(max(dot(d,normalize(-vW+vec3(0.0,0.0,0.001))),0.0),8.0)*0.5;
+}
+
+void main(){
+  vec3 N=normalize(vN);
+  vec3 V=normalize(uCam-vW);
+  if(dot(N,V)<0.0) N=-N;
+  vec3 R=reflect(-V,N);
+  vec3 col;
+  float r=length(vLocal);
+  if(vKind<1.5 && uType<2.5){
+    vec2 p=vLocal;
+    vec3 im = vKind<0.5 ? imgA(p) : imgB(vec2(-p.x,p.y));
+    float diff=0.78+0.32*max(dot(N,uL),0.0);
+    float fres=pow(1.0-max(dot(N,V),0.0),4.0);
+    col=im*diff+env(R)*0.05+fres*0.12+pow(max(dot(R,uL),0.0),40.0)*0.2;
+    col+=vec3(1.0,0.72,0.35)*uPulse*0.35+vec3(0.4,0.9,1.0)*uJoinP*0.3;
+    float eo=uRad.y-r, ei=r-uRad.x;
+    float se=(1.0-smoothstep(0.0,0.008,eo))*uFuse.y+(1.0-smoothstep(0.0,0.008,ei))*uFuse.x;
+    col=mix(col,vec3(0.45,0.9,1.0)*(1.4+0.4*sin(uT*7.0)),clamp(se,0.0,1.0)*0.85);
+    if(uSel>0.5){
+      float dl=abs(vW.x*uAxis.y-vW.y*uAxis.x);
+      float nub=(1.0-smoothstep(0.014,0.022,dl))*(1.0-smoothstep(0.0,0.03,eo));
+      col=mix(col,vec3(0.6,0.95,1.0)*1.7,nub);
+    }
+    if(uType>0.5 && uType<1.5){
+      float pulse=0.85+0.15*sin(uT*3.0);
+      col+=vec3(2.4,1.5,0.85)*pulse*exp(-r*r*700.0)*(1.0+uWin*2.0);
+    }
+  } else {
+    vec3 base=vec3(0.95,0.7,0.34);
+    col=base*(env(R)*1.15+0.12)+pow(max(dot(R,uL),0.0),30.0)*0.9*vec3(1.0,0.9,0.7);
+  }
+  col+=vec3(1.0,0.75,0.4)*uWin*0.2;
+  gl_FragColor=vec4(col,1.0);
+}
+`;
+
+const cv = document.getElementById('c');
+const gl = cv.getContext('webgl', {antialias:false, alpha:false, powerPreference:'high-performance'});
+let pScene, pPost, pBg, pRing, us, up, ub, ur;
+let tex, fbo, sW = 1, sH = 1, gTex, gFbo, gDepth, gW = 1, gH = 1, triBuf, ringBuf, ringVerts = 0;
+
+function compile(type, src){
+  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+function program(vs, fs){
+  const p = gl.createProgram();
+  gl.attachShader(p, compile(gl.VERTEX_SHADER, vs));
+  gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+  gl.bindAttribLocation(p, 0, 'p'); gl.linkProgram(p);
+  if(!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  return p;
+}
+const uniforms = (p, names) => Object.fromEntries(names.map(n => [n, gl.getUniformLocation(p, n)]));
+
+
+
+function setupTarget(t, w, h){
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+}
+function resize(){
+  const coarse = matchMedia('(pointer:coarse)').matches;
+  const dpr = Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2);
+  const w = Math.max(1, Math.round(innerWidth * dpr)), h = Math.max(1, Math.round(innerHeight * dpr));
+  cv.width = w; cv.height = h;
+  let k = Math.min(1, Math.sqrt((coarse ? 360000 : 700000) / (w * h)));
+  sW = Math.max(1, Math.round(w * k)); sH = Math.max(1, Math.round(h * k));
+  if(!tex){ tex = gl.createTexture(); fbo = gl.createFramebuffer(); gTex = gl.createTexture(); gFbo = gl.createFramebuffer(); gDepth = gl.createRenderbuffer(); }
+  setupTarget(tex, sW, sH);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  k = Math.min(1, Math.sqrt((coarse ? 1100000 : 2400000) / (w * h)));
+  gW = Math.max(1, Math.round(w * k)); gH = Math.max(1, Math.round(h * k));
+  setupTarget(gTex, gW, gH);
+  gl.bindRenderbuffer(gl.RENDERBUFFER, gDepth);
+  gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, gW, gH);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, gFbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, gTex, 0);
+  gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, gDepth);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  viewMetrics();
+}
+function bindTri(){ gl.bindBuffer(gl.ARRAY_BUFFER, triBuf); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0); }
+function bindRing(){ gl.bindBuffer(gl.ARRAY_BUFFER, ringBuf); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0); }
+
+/* ---------- camera choreography (shared with the shader) ---------- */
+let SUN = [-0.2414, 0.0966, -0.9656];
+const ss = (a, b, x) => { x = Math.min(1, Math.max(0, (x - a) / (b - a))); return x * x * (3 - 2 * x); };
+const sub = (a, b) => [a[0]-b[0], a[1]-b[1], a[2]-b[2]];
+const dot = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+const cross = (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+const norm = a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0]/l, a[1]/l, a[2]/l]; };
+
+function sunAt(t){ return norm([-0.25, 0.10 - 0.165 * ss(4.8, 8.5, t), -1.0]); }
+function impact(t){
+  const i1 = t > 3.3 ? Math.exp(-(t - 3.3) * 5) : 0;
+  const i2 = t > 8.6 ? Math.exp(-(t - 8.6) * 3.5) : 0;
+  return i1 + 1.6 * i2;
+}
+function camera(t){
+  const r = 11 - 7 * ss(0, 2.8, t) + 3.0 * ss(3.3, 6.5, t) - 3.4 * ss(6.2, 8.6, t) + 5.5 * ss(8.6, 10, t);
+  const h = 0.28 + 1.45 * ss(0.3, 2.8, t) - 0.55 * ss(3.3, 6, t) + 1.6 * ss(5.5, 8.0, t) - 1.2 * ss(8.0, 9.0, t) + 0.6 * ss(8.6, 10, t);
+  const a = -1.1 + 1.16 * ss(0, 5.2, t) + 0.9 * ss(4.6, 8.0, t) - 1.56 * ss(7.6, 9.6, t);
+  const imp = impact(t);
+  const sk = imp * 0.08;
+  const ro = [Math.sin(a) * r + Math.sin(t * 90) * sk, h + Math.cos(t * 77) * sk, Math.cos(a) * r];
+  return { ro, ta: [0, 1.35, 0], imp };
+}
+function sunScreen(ro, ta){
+  const f = norm(sub(ta, ro)), r = norm(cross(f, [0, 1, 0])), u = cross(r, f);
+  const z = dot(SUN, f);
+  if(z <= 0.05) return { pos: [0.5, 0.5], vis: 0 };
+  const asp = cv.width / cv.height;
+  const x = dot(SUN, r) / z * 1.6, y = dot(SUN, u) / z * 1.6;
+  const pos = [x / asp + 0.5, y + 0.5];
+  const d = Math.max(Math.abs(pos[0] - 0.5), Math.abs(pos[1] - 0.5));
+  return { pos, vis: 1 - ss(0.5, 1.1, d) };
+}
+
+function draw(t, fade, flash){
+  const c = camera(t);
+  SUN = sunAt(t);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.viewport(0, 0, sW, sH);
+  gl.useProgram(pScene);
+  gl.uniform2f(us.uRes, sW, sH);
+  gl.uniform1f(us.uT, t);
+  gl.uniform1f(us.uImp, c.imp);
+  gl.uniform3fv(us.uRo, c.ro);
+  gl.uniform3fv(us.uTa, c.ta);
+  gl.uniform3fv(us.uSun, SUN);
+  gl.uniform1f(us.uNight, ss(5.5, 8.5, t));
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  const s = sunScreen(c.ro, c.ta);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, cv.width, cv.height);
+  gl.useProgram(pPost);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.uniform1i(up.uTex, 0);
+  gl.uniform2f(up.uRes, cv.width, cv.height);
+  gl.uniform2f(up.uSun, s.pos[0], s.pos[1]);
+  gl.uniform1f(up.uSunVis, s.vis);
+  gl.uniform1f(up.uT, t);
+  gl.uniform1f(up.uFade, fade);
+  gl.uniform1f(up.uFlash, flash);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+
+
+
+/* ---------- synthesised soundtrack ---------- */
+let ac = null;
+function noiseBuf(ctx, secs){
+  const b = ctx.createBuffer(1, ctx.sampleRate * secs, ctx.sampleRate), d = b.getChannelData(0);
+  for(let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  return b;
+}
+function impulse(ctx, secs){
+  const len = ctx.sampleRate * secs, b = ctx.createBuffer(2, len, ctx.sampleRate);
+  for(let ch = 0; ch < 2; ch++){ const d = b.getChannelData(ch); for(let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
+  return b;
+}
+function soundtrack(){
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if(!AC) return;
+  ac = ac || new AC(); ac.resume();
+  const T = ac.currentTime + 0.03;
+  const master = ac.createGain(); master.gain.value = 0.7; introMaster = master;
+  const comp = ac.createDynamicsCompressor(); master.connect(comp); comp.connect(ac.destination);
+  const rev = ac.createConvolver(); rev.buffer = impulse(ac, 2.8);
+  const revG = ac.createGain(); revG.gain.value = 0.5; rev.connect(revG); revG.connect(master);
+  const nb = noiseBuf(ac, 4);
+
+  function pad(t0, t1, freqs, fLo, fHi, tPeak, fadeIn, fadeOutStart){
+    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 4;
+    lp.frequency.setValueAtTime(fLo, t0); lp.frequency.exponentialRampToValueAtTime(fHi, tPeak); lp.frequency.exponentialRampToValueAtTime(fLo * 1.5, t1);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.18, t0 + fadeIn);
+    g.gain.setValueAtTime(0.18, fadeOutStart); g.gain.exponentialRampToValueAtTime(0.0001, t1);
+    lp.connect(g); g.connect(master); g.connect(rev);
+    freqs.forEach((f, i) => {
+      for(const dt of [-7, 7]){
+        const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = dt;
+        const og = ac.createGain(); og.gain.value = 0.12 / (1 + i * 0.3);
+        o.connect(og); og.connect(lp); o.start(t0); o.stop(t1 + 0.1);
+      }
+    });
+  }
+  function riser(t0, t1, peak){
+    const ns = ac.createBufferSource(); ns.buffer = nb;
+    const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 6;
+    bp.frequency.setValueAtTime(300, t0); bp.frequency.exponentialRampToValueAtTime(7000, t1);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(peak, t1 - 0.05); g.gain.exponentialRampToValueAtTime(0.0001, t1 + 0.1);
+    ns.connect(bp); bp.connect(g); g.connect(master); g.connect(rev);
+    ns.start(t0); ns.stop(t1 + 0.2);
+  }
+  function hit(I, size){
+    const so = ac.createOscillator(); so.type = 'sine';
+    so.frequency.setValueAtTime(140, I); so.frequency.exponentialRampToValueAtTime(36, I + 0.8 * size);
+    const sg = ac.createGain();
+    sg.gain.setValueAtTime(0.0001, I); sg.gain.exponentialRampToValueAtTime(0.9, I + 0.01); sg.gain.exponentialRampToValueAtTime(0.0001, I + 1.6 * size);
+    so.connect(sg); sg.connect(master); so.start(I); so.stop(I + 1.7 * size);
+    const cs = ac.createBufferSource(); cs.buffer = nb;
+    const cl = ac.createBiquadFilter(); cl.type = 'lowpass';
+    cl.frequency.setValueAtTime(8000, I); cl.frequency.exponentialRampToValueAtTime(300, I + 0.6 * size);
+    const cg = ac.createGain(); cg.gain.setValueAtTime(0.5 * size, I); cg.gain.exponentialRampToValueAtTime(0.0001, I + 0.7 * size);
+    cs.connect(cl); cl.connect(cg); cg.connect(master); cg.connect(rev); cs.start(I); cs.stop(I + 0.8 * size);
+    [1318.5, 1760, 1975.5, 2637].forEach((f, i) => bell(I + 0.05 + i * 0.07, f, 0.06, 1.5));
+  }
+  function bell(s, f, vol, len){
+    const o = ac.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(vol, s + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, s + len);
+    o.connect(g); g.connect(rev); g.connect(master); o.start(s); o.stop(s + len + 0.1);
+  }
+
+  // act one: sunset
+  pad(T, T + 5.6, [110, 164.81, 220, 261.63, 329.63], 200, 4000, T + 3.3, 1.2, T + 4.8);
+  riser(T + 0.6, T + 3.3, 0.25);
+  hit(T + 3.3, 1.0);
+  // act two: night, aurora, supernova
+  pad(T + 5.0, T + 10.2, [87.31, 130.81, 174.61, 220, 261.63], 500, 5000, T + 8.6, 0.6, T + 9.3);
+  [1046.5, 1318.5, 1568, 1760, 2093, 1760, 1568, 2349.3].forEach((f, i) => bell(T + 5.7 + i * 0.3, f, 0.035, 1.2));
+  riser(T + 6.2, T + 8.6, 0.32);
+  hit(T + 8.6, 1.4);
+}
+
+
+
+/* ---------- game sound effects ---------- */
+let bus = null;
+function getBus(){
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if(!AC) return null;
+  ac = ac || new AC();
+  if(ac.state === 'suspended') ac.resume();
+  if(!bus){
+    const m = ac.createGain(); m.gain.value = 0.6; m.connect(ac.destination);
+    const rv = ac.createConvolver(); rv.buffer = impulse(ac, 2.2);
+    const rg = ac.createGain(); rg.gain.value = 0.35; rv.connect(rg); rg.connect(m);
+    bus = { m, rv, nb: noiseBuf(ac, 1) };
+  }
+  return bus;
+}
+function tone(f, vol, len, type, delay, toRev, fEnd){
+  const b = getBus(); if(!b) return;
+  const t = ac.currentTime + (delay || 0);
+  const o = ac.createOscillator(); o.type = type || 'sine';
+  o.frequency.setValueAtTime(f, t);
+  if(fEnd) o.frequency.exponentialRampToValueAtTime(fEnd, t + len);
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+  o.connect(g); g.connect(b.m); if(toRev !== false) g.connect(b.rv);
+  o.start(t); o.stop(t + len + 0.05);
+}
+function whoosh(len, f0, f1, vol){
+  const b = getBus(); if(!b) return;
+  const t = ac.currentTime;
+  const s = ac.createBufferSource(); s.buffer = b.nb;
+  const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 3;
+  f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + len * 0.5); f.frequency.exponentialRampToValueAtTime(f0, t + len);
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + len * 0.4); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+  s.connect(f); f.connect(g); g.connect(b.m); g.connect(b.rv);
+  s.start(t); s.stop(t + len + 0.05);
+}
+const sfx = {
+  tick(){ tone(2400, 0.018, 0.035, 'triangle', 0, false); },
+  select(){ tone(880, 0.035, 0.12); },
+  deny(){ tone(150, 0.06, 0.16, 'square', 0, false); },
+  flip(){ whoosh(1.2, 250, 1800, 0.24); tone(110, 0.08, 1.1, 'sine', 0.1, true, 70); tone(90, 0.12, 0.5, 'sine', 1.05, false, 50); },
+  snap(){ tone(1600, 0.05, 0.08, 'triangle', 0, false); tone(2400, 0.03, 0.12, 'sine', 0.03); },
+  lock(){ [880, 1318.5, 1760].forEach((f, i) => tone(f, 0.055, 1.2, 'sine', i * 0.06)); },
+  join(){ tone(660, 0.05, 0.6, 'sine'); tone(990, 0.04, 0.7, 'sine', 0.05); },
+  turn(){ whoosh(0.9, 200, 1200, 0.14); },
+  win(){
+    [220, 277.18, 329.63, 440, 554.37, 659.25].forEach((f, i) => tone(f, 0.045, 2.8, 'sine', i * 0.04));
+    [1318.5, 1661.2, 1976, 2637, 3322].forEach((f, i) => tone(f, 0.035, 1.4, 'sine', 0.3 + i * 0.12));
+    tone(140, 0.5, 1.4, 'sine', 0, false, 40);
+    whoosh(1.2, 300, 5000, 0.2);
+  }
+};
+
+/* ---------- puzzle game ---------- */
+const HUB_R = 0.12, FRAME_R = 1.085, LIP_R = 1.11, GAP = 0.004, LEVELS = 20, FOV = 35 * Math.PI / 180;
+const TAU = Math.PI * 2;
+const wrap = a => a - TAU * Math.round(a / TAU);
+const ease = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const G = { mode:'boot', level:1, maxLevel:1, n:5, w:0.176, rings:[], sel:-1, tol:0.2, seed:[0,0,0,0,0,0,0,0],
+  psi:0, psiAnim:null, scrEnd:0, op:null, won:false, winT:0, cap:15, ppu:150, D:4, halfH:1, fadeT0:0, lastTap:{i:-1,t:0}, cam:null };
+try {
+  G.maxLevel = Math.max(1, Math.min(LEVELS, parseInt(localStorage.getItem('helios-max'), 10) || 1));
+  G.level = G.maxLevel;
+} catch(e) {}
+
+function mulberry32(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+function viewMetrics(){
+  const W = innerWidth, H = innerHeight;
+  const coarse = matchMedia('(pointer:coarse)').matches;
+  const span = 2 * LIP_R + 0.06;
+  G.ppu = Math.max(40, Math.min((W - 16) / span, (H - 170) / span));
+  G.halfH = (H / 2) / G.ppu;
+  G.D = G.halfH / Math.tan(FOV / 2);
+  const minW = coarse ? 9 : 7;
+  G.cap = Math.max(5, Math.min(100, Math.floor(((1 - HUB_R) * G.ppu / minW) / 5) * 5));
+}
+
+const THICK = 0.07;
+function compose(p, r){ return p.d > 0 ? { th: p.th + r.th, d: r.d } : { th: p.th - r.th, d: -r.d }; }
+
+function startLevel(L){
+  G.level = L;
+  G.n = Math.min(5 * L, G.cap);
+  G.w = (1 - HUB_R) / G.n;
+  G.tol = Math.max(4, 12 - (L - 1) * 0.45) * Math.PI / 180;
+  const rnd = mulberry32(L * 7919 + 13);
+  G.seed = Array.from({length: 8}, () => rnd());
+  // each ring gets a random orientation relative to the ring around it (flips favoured)
+  const rel = [];
+  for(let i = 0; i < G.n; i++){
+    const d = Math.random() < 0.6 ? -1 : 1;
+    let th = (Math.random() * 2 - 1) * Math.PI;
+    while(d === 1 && Math.abs(th) < 0.6) th = (Math.random() * 2 - 1) * Math.PI;
+    rel.push({ th, d });
+  }
+  G.rings = new Array(G.n);
+  let W = { th: 0, d: 1 };
+  for(let i = G.n - 1; i >= 0; i--){
+    W = compose(W, rel[i]);
+    G.rings[i] = { th: wrap(W.th), d: W.d, ax: Math.random() < 0.5 ? 0 : Math.PI / 2, gid: i, locked: false, pulseT: -1e9, joinT: -1e9, scr: null };
+  }
+  G.sel = -1; G.won = false; G.winT = 0; G.op = null;
+  const t0 = performance.now() + 900, step = Math.min(70, 1000 / G.n);
+  G.scrEnd = 0;
+  G.rings.forEach((r, i) => {
+    r.scr = { t0: t0 + (G.n - 1 - i) * step, dur: 1900, extra: TAU * (i % 2 ? 1 : -1) * (i % 3 === 0 ? 2 : 1), flip: r.d < 0 };
+    G.scrEnd = Math.max(G.scrEnd, r.scr.t0 + r.scr.dur);
+  });
+  if(ac) setTimeout(() => sfx.turn(), 900);
+  hudUpdate();
+}
+
+/* 3x3 row-major helpers */
+function mul3(a, b){ const o = new Array(9); for(let r = 0; r < 3; r++) for(let c = 0; c < 3; c++) o[r*3+c] = a[r*3]*b[c] + a[r*3+1]*b[3+c] + a[r*3+2]*b[6+c]; return o; }
+function rz(a){ const c = Math.cos(a), s = Math.sin(a); return [c,-s,0, s,c,0, 0,0,1]; }
+function ry(a){ const c = Math.cos(a), s = Math.sin(a); return [c,0,s, 0,1,0, -s,0,c]; }
+function rx(a){ const c = Math.cos(a), s = Math.sin(a); return [1,0,0, 0,c,-s, 0,s,c]; }
+const I3 = [1,0,0, 0,1,0, 0,0,1];
+const colMajor = m => new Float32Array([m[0],m[3],m[6], m[1],m[4],m[7], m[2],m[5],m[8]]);
+
+function ringMatrix(j, now){
+  const rg = G.rings[j];
+  if(rg.scr){
+    const x = Math.min(1, Math.max(0, (now - rg.scr.t0) / rg.scr.dur));
+    if(x >= 1) rg.scr = null;
+    else {
+      const e = ease(x), ef = ease(Math.min(1, Math.max(0, (x - 0.15) / 0.7)));
+      if(!rg.scr.flip) return rz((rg.th + rg.scr.extra) * e);
+      return mul3(rz((rg.th + rg.scr.extra) * e), ry(Math.PI * ef));
+    }
+  }
+  let M = mul3(rz(rg.th), rg.d < 0 ? ry(Math.PI) : I3);
+  const op = G.op;
+  if(op && j <= op.k){
+    const s = ease(Math.min(1, Math.max(0, (now - op.t0) / op.dur)));
+    const A = op.kind === 'flip' ? mul3(rz(op.phi), mul3(rx(Math.PI * s), rz(-op.phi))) : rz(op.delta * s);
+    M = mul3(A, M);
+  }
+  return M;
+}
+
+function gameCam(now){
+  const t = now / 1000;
+  const el = 0.22 + 0.025 * Math.sin(t * 0.5);
+  const az = G.psi + 0.04 * Math.sin(t * 0.37);
+  const D = G.D;
+  const eye = [Math.sin(az) * Math.cos(el) * D, Math.sin(el) * D, Math.cos(az) * Math.cos(el) * D];
+  const f = norm([-eye[0], -eye[1], -eye[2]]);
+  const r = norm(cross(f, [0, 1, 0]));
+  const u = cross(r, f);
+  const asp = innerWidth / innerHeight;
+  const ft = 1 / Math.tan(FOV / 2), n = Math.max(0.1, D - 1.6), fa = D + 1.6;
+  const P = [ft/asp,0,0,0, 0,ft,0,0, 0,0,(fa+n)/(n-fa),-1, 0,0,2*fa*n/(n-fa),0];
+  const V = [r[0],u[0],-f[0],0, r[1],u[1],-f[1],0, r[2],u[2],-f[2],0, -dot(r,eye),-dot(u,eye),dot(f,eye),1];
+  const VP = new Array(16);
+  for(let c = 0; c < 4; c++) for(let rr = 0; rr < 4; rr++){ let s = 0; for(let k = 0; k < 4; k++) s += P[k*4+rr] * V[c*4+k]; VP[c*4+rr] = s; }
+  const L = norm([r[0]*0.35 + u[0]*0.55 - f[0]*0.75, r[1]*0.35 + u[1]*0.55 - f[1]*0.75, r[2]*0.35 + u[2]*0.55 - f[2]*0.75]);
+  return { eye, f, r, u, asp, VP: new Float32Array(VP), L };
+}
+
+function pickWorld(cx, cy){
+  const c = G.cam; if(!c) return null;
+  const nx = cx / innerWidth * 2 - 1, ny = 1 - cy / innerHeight * 2;
+  const th = Math.tan(FOV / 2);
+  const d = norm([c.f[0] + c.r[0]*nx*th*c.asp + c.u[0]*ny*th, c.f[1] + c.r[1]*nx*th*c.asp + c.u[1]*ny*th, c.f[2] + c.r[2]*nx*th*c.asp + c.u[2]*ny*th]);
+  if(Math.abs(d[2]) < 1e-4) return null;
+  const zf = Math.cos(G.psi) >= 0 ? THICK : -THICK;
+  const t = (zf - c.eye[2]) / d[2];
+  if(t < 0) return null;
+  return [c.eye[0] + d[0]*t, c.eye[1] + d[1]*t];
+}
+function ringAt(p){
+  if(!p) return -1;
+  const r = Math.hypot(p[0], p[1]);
+  if(r > 1) return -1;
+  return Math.max(0, Math.min(G.n - 1, Math.floor((r - HUB_R) / G.w)));
+}
+const busy = () => !!G.op || G.rings.some(r => r.scr);
+const interactive = () => G.mode === 'game' && !G.won && !G.psiAnim && !busy() && Math.abs(Math.sin(G.psi)) < 0.12;
+const members = g => { const o = []; for(let i = 0; i < G.n; i++) if(G.rings[i].gid === g) o.push(i); return o; };
+const outerOf = g => { let h = -1; for(let i = 0; i < G.n; i++) if(G.rings[i].gid === g) h = i; return h; };
+/* a ring's pivots are mounted on the ring around it, so its hinge line turns with that ring */
+function axisAngle(k){
+  const a = G.rings[k].ax;
+  if(k === G.n - 1) return a;
+  const p = G.rings[k + 1];
+  return p.d > 0 ? p.th + a : p.th - a;
+}
+function flipGroup(g){
+  const h = outerOf(g);
+  if(h < 0 || G.rings[h].locked || busy()) return;
+  const phi = axisAngle(h);
+  G.op = { k: h, kind: 'flip', phi, t0: performance.now(), dur: 1200, then: () => {
+    for(let j = 0; j <= h; j++){ const r = G.rings[j]; r.th = wrap(2 * phi + Math.PI - r.th); r.d = -r.d; }
+    settle(G.rings[h].gid);
+  }};
+  sfx.flip();
+}
+/* after a move: if the moved group now sits true to the ring around it (or the frame), join/lock */
+function settle(g){
+  const h = outerOf(g);
+  if(h < 0) return;
+  const r = G.rings[h];
+  for(let j = 0; j <= h; j++) G.rings[j].th = wrap(G.rings[j].th);
+  if(r.locked){ hudUpdate(); return; }
+  const frame = h === G.n - 1;
+  const pth = frame ? 0 : G.rings[h + 1].th, pd = frame ? 1 : G.rings[h + 1].d;
+  const diff = wrap(pth - r.th);
+  if(r.d !== pd || Math.abs(diff) >= G.tol){ hudUpdate(); return; }
+  const done = () => {
+    for(let j = 0; j <= h; j++) G.rings[j].th = wrap(G.rings[j].th + diff);
+    const now = performance.now();
+    const pg = frame ? null : G.rings[h + 1].gid;
+    const lk = frame || G.rings[h + 1].locked;
+    members(g).forEach(j => { const q = G.rings[j]; if(pg !== null) q.gid = pg; if(lk){ q.locked = true; q.pulseT = now; } });
+    if(!lk) members(pg).forEach(j => G.rings[j].joinT = now);
+    if(lk) sfx.lock(); else sfx.join();
+    if(G.sel >= 0 && G.rings[G.sel].locked) G.sel = -1;
+    hudUpdate();
+    if(G.rings.every(q => q.locked)) win();
+  };
+  if(Math.abs(diff) < 1e-6) done();
+  else { G.op = { k: h, kind: 'snap', delta: diff, t0: performance.now(), dur: 240, then: done }; sfx.snap(); }
+}
+function win(){
+  if(G.won) return;
+  G.won = true; G.winT = performance.now(); G.sel = -1;
+  sfx.win();
+  G.psiAnim = { from: G.psi, to: G.psi + Math.PI, t0: G.winT + 600, dur: 1600, next: { delta: Math.PI, delay: 3200, dur: 1600 } };
+  const next = Math.min(LEVELS, G.level + 1);
+  if(next > G.maxLevel){ G.maxLevel = next; try { localStorage.setItem('helios-max', String(next)); } catch(e) {} }
+  hudUpdate();
+  setTimeout(() => {
+    if(G.mode !== 'game' || !G.won) return;
+    const last = G.level >= LEVELS;
+    $('wTag').textContent = 'LEVEL ' + G.level + ' COMPLETE';
+    $('wTitle').textContent = last ? 'ALL GATES OPEN' : 'GATE OPEN';
+    $('wNext').classList.toggle('hide', last);
+    winEl.classList.remove('hide');
+  }, 7400);
+}
+function turnAround(){
+  if(G.psiAnim || G.won) return;
+  const base = Math.round(G.psi / Math.PI) * Math.PI;
+  G.psiAnim = { from: G.psi, to: base + Math.PI, t0: performance.now(), dur: 900 };
+  sfx.turn();
+}
+
+function updateGame(now, dt){
+  if(G.mode === 'menu' && !G.psiAnim) G.psi += dt * 0.25;
+  if(G.psiAnim){
+    const a = G.psiAnim, x = (now - a.t0) / a.dur;
+    if(x >= 1){ G.psi = Math.atan2(Math.sin(a.to), Math.cos(a.to)); G.psiAnim = a.next ? { from: G.psi, to: G.psi + a.next.delta, t0: now + a.next.delay, dur: a.next.dur } : null; if(a.next) sfx.turn(); }
+    else if(x > 0) G.psi = a.from + (a.to - a.from) * ease(x);
+  }
+  if(G.op && now >= G.op.t0 + G.op.dur){ const op = G.op; G.op = null; op.then(); }
+}
+
+function drawPiece(r0, r1, thick, type, M, lock, sel, pulse, axis, fuse, joinP){
+  gl.uniform2f(ur.uFuse, fuse[0], fuse[1]);
+  gl.uniform1f(ur.uJoinP, joinP);
+  gl.uniform2f(ur.uRad, r0, r1);
+  gl.uniform1f(ur.uThick, thick);
+  gl.uniform1f(ur.uType, type);
+  gl.uniformMatrix3fv(ur.uRot, false, colMajor(M));
+  gl.uniform1f(ur.uLock, lock);
+  gl.uniform1f(ur.uSel, sel);
+  gl.uniform1f(ur.uPulse, pulse);
+  gl.uniform2f(ur.uAxis, axis[0], axis[1]);
+  gl.drawArrays(gl.TRIANGLES, 0, ringVerts);
+}
+
+function renderGame(now){
+  const t = (now / 1000) % 1000;
+  const cam = G.cam = gameCam(now);
+  const winK = G.won ? Math.min(1, (now - G.winT) / 800) : 0;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, gFbo);
+  gl.viewport(0, 0, gW, gH);
+  gl.disable(gl.DEPTH_TEST);
+  gl.clearColor(0, 0, 0, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  bindTri();
+  gl.useProgram(pBg);
+  gl.uniform2f(ub.uRes, gW, gH);
+  gl.uniform1f(ub.uT, t);
+  gl.uniform1f(ub.uPsi, G.psi);
+  gl.uniform1f(ub.uWin, winK);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  gl.enable(gl.DEPTH_TEST);
+  gl.useProgram(pRing);
+  bindRing();
+  gl.uniformMatrix4fv(ur.uVP, false, cam.VP);
+  gl.uniform4f(ur.uS1, G.seed[0], G.seed[1], G.seed[2], G.seed[3]);
+  gl.uniform4f(ur.uS2, G.seed[4], G.seed[5], G.seed[6], G.seed[7]);
+  gl.uniform1f(ur.uT, t);
+  gl.uniform1f(ur.uWin, winK);
+  gl.uniform3fv(ur.uCam, cam.eye);
+  gl.uniform3fv(ur.uL, cam.L);
+  const none = [0, 1];
+  drawPiece(1, FRAME_R, 0.08, 2, I3, 1, 0, 0, none, [0, 0], 0);
+  drawPiece(FRAME_R, LIP_R, 0.09, 4, I3, 1, 0, 0, none, [0, 0], 0);
+  const selG = G.sel >= 0 && G.rings[G.sel] ? G.rings[G.sel].gid : -1;
+  let selLo = -1, selHi = -1;
+  if(selG >= 0){ const m = members(selG); selLo = m[0]; selHi = m[m.length - 1]; }
+  const selPhi = selHi >= 0 ? axisAngle(selHi) : 0;
+  const selAxis = [Math.cos(selPhi), Math.sin(selPhi)];
+  for(let i = 0; i < G.n; i++){
+    const rg = G.rings[i];
+    let pulse = Math.max(0, 1 - (now - rg.pulseT) / 700);
+    if(G.won) pulse = Math.max(pulse, 1 - Math.abs((now - G.winT) / 1000 * 3 - i / G.n * 2.5) * 1.5);
+    const joinP = Math.max(0, 1 - (now - rg.joinT) / 600);
+    const r0 = i === 0 ? 0 : HUB_R + i * G.w, r1 = HUB_R + (i + 1) * G.w;
+    const fuse = [(i === selLo && i > 0) ? 1 : 0, i === selHi ? 1 : 0];
+    drawPiece(r0, r1, THICK, i === 0 ? 1 : 0, ringMatrix(i, now), rg.locked ? 1 : 0, i === selHi ? 1 : 0, pulse, selAxis, fuse, joinP);
+  }
+  gl.disable(gl.DEPTH_TEST);
+
+  const fade = Math.min(1, (now - G.fadeT0) / 900);
+  const flash = G.won ? Math.max(0, 0.45 * (1 - (now - G.winT) / 450)) : 0;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, cv.width, cv.height);
+  bindTri();
+  gl.useProgram(pPost);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, gTex);
+  gl.uniform1i(up.uTex, 0);
+  gl.uniform2f(up.uRes, cv.width, cv.height);
+  gl.uniform2f(up.uSun, 0.5, 0.5);
+  gl.uniform1f(up.uSunVis, 0);
+  gl.uniform1f(up.uT, t);
+  gl.uniform1f(up.uFade, fade);
+  gl.uniform1f(up.uFlash, flash);
+  gl.uniform1f(up.uVig, 1);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+
+/* ---------- input ---------- */
+let drag = null, tickAcc = 0;
+cv.addEventListener('pointerdown', e => {
+  if(G.mode !== 'game' || G.won) return;
+  cv.setPointerCapture(e.pointerId);
+  getBus();
+  const p = interactive() ? pickWorld(e.clientX, e.clientY) : null;
+  const i = ringAt(p);
+  if(i >= 0){
+    const h = outerOf(G.rings[i].gid);
+    if(G.rings[h].locked){ members(G.rings[i].gid).forEach(j => G.rings[j].pulseT = performance.now()); sfx.deny(); drag = null; return; }
+    if(G.sel < 0 || G.rings[G.sel].gid !== G.rings[i].gid) sfx.select();
+    G.sel = i; hudUpdate();
+    drag = { type:'ring', i, h, last: Math.atan2(p[1], p[0]), x: e.clientX, y: e.clientY, moved:false };
+  } else {
+    drag = { type:'orbit', lastX: e.clientX, x: e.clientX, moved:false };
+  }
+});
+cv.addEventListener('pointermove', e => {
+  if(!drag) return;
+  if(drag.type === 'ring'){
+    if(busy() || G.rings[drag.h].locked) return;
+    const p = pickWorld(e.clientX, e.clientY); if(!p) return;
+    const a = Math.atan2(p[1], p[0]);
+    const d = wrap(a - drag.last); drag.last = a;
+    if(!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 6) drag.moved = true;
+    if(drag.moved){
+      for(let j = 0; j <= drag.h; j++) G.rings[j].th += d;
+      tickAcc += Math.abs(d);
+      if(tickAcc > 0.26){ tickAcc = 0; sfx.tick(); }
+    }
+  } else {
+    const dx = e.clientX - drag.lastX; drag.lastX = e.clientX;
+    if(Math.abs(e.clientX - drag.x) > 6) drag.moved = true;
+    if(drag.moved && !G.psiAnim) G.psi += dx * 0.009;
+  }
+});
+function endDrag(){
+  if(!drag) return;
+  if(drag.type === 'ring'){
+    const g = G.rings[drag.i].gid;
+    if(!drag.moved){
+      const now = performance.now();
+      if(G.lastTap.i >= 0 && G.rings[G.lastTap.i].gid === g && now - G.lastTap.t < 340){ flipGroup(g); G.lastTap = {i:-1, t:0}; }
+      else G.lastTap = { i: drag.i, t: now };
+    } else settle(g);
+  } else if(drag.moved && !G.psiAnim){
+    const to = Math.round(G.psi / Math.PI) * Math.PI;
+    G.psiAnim = { from: G.psi, to, t0: performance.now(), dur: 450 };
+  }
+  drag = null;
+}
+cv.addEventListener('pointerup', endDrag);
+cv.addEventListener('pointercancel', endDrag);
+
+/* ---------- UI flow ---------- */
+const $ = id => document.getElementById(id);
+const ui = $('ui'), titleEl = $('title'), subEl = $('sub'), errEl = $('err'), skipBtn = $('skipIntro');
+const hud = $('hud'), menuEl = $('menu'), winEl = $('win');
+const POSTER_T = 3.0, DURATION = 10;
+let introStart = 0, titleStage = 0, introMaster = null, lastNow = 0;
+
+function hudUpdate(){
+  if(!G.rings.length) return;
+  const locked = G.rings.filter(r => r.locked).length;
+  $('lvl').textContent = 'LEVEL ' + G.level + ' / ' + LEVELS + ' · ' + G.n + ' RINGS';
+  $('prog').textContent = locked + ' / ' + G.n + ' LOCKED';
+  const sel = G.rings[G.sel];
+  const fb = $('bFlip');
+  fb.disabled = !sel || G.rings[outerOf(sel.gid)].locked || G.won;
+  const phi = sel ? axisAngle(outerOf(sel.gid)) : Math.PI / 2;
+  fb.innerHTML = (Math.abs(Math.sin(phi)) > 0.707 ? '⇆' : '⇅') + ' FLIP';
+  $('hint').classList.toggle('hide', G.level > 2);
+  $('mLvl').textContent = 'LEVEL ' + G.level + ' · ' + G.n + ' RINGS';
+  $('mPrev').disabled = G.level <= 1;
+  $('mNext').disabled = G.level >= G.maxLevel;
+}
+
+function playIntro(){
+  [ui, menuEl, hud, winEl].forEach(el => el.classList.add('hide'));
+  titleEl.className = ''; titleStage = 0;
+  subEl.textContent = 'real-time · raymarched · one file';
+  try { soundtrack(); } catch(e) {}
+  introStart = performance.now() + 30;
+  G.mode = 'intro';
+  skipBtn.classList.remove('hide');
+}
+function introFrame(now){
+  const t = Math.min(DURATION, Math.max(0, (now - introStart) / 1000));
+  const fade = ss(0, 0.5, t) * (1 - ss(9.4, 10, t));
+  let flash = 0;
+  if(t > 3.3 && t < 3.6) flash += Math.pow(1 - (t - 3.3) / 0.3, 2) * 0.7;
+  if(t > 8.6 && t < 9.1) flash += Math.pow(1 - (t - 8.6) / 0.5, 2) * 1.0;
+  bindTri();
+  gl.useProgram(pPost); gl.uniform1f(up.uVig, 0);
+  draw(t, fade, flash);
+  if(titleStage === 0 && t > 3.55){ titleEl.className = 'on'; titleStage = 1; }
+  if(titleStage === 1 && t > 4.9){ titleEl.className = 'on out'; titleStage = 2; }
+  if(titleStage === 2 && t > 6.0){ titleEl.className = ''; subEl.textContent = 'ten seconds · zero dependencies'; titleStage = 3; }
+  if(titleStage === 3 && t > 8.95){ titleEl.className = 'on'; titleStage = 4; }
+  if(titleStage === 4 && t > 9.45){ titleEl.className = 'on out'; titleStage = 5; }
+  if(t >= DURATION) endIntro();
+}
+function endIntro(){
+  skipBtn.classList.add('hide');
+  titleEl.className = '';
+  enterMenu();
+}
+function skipIntro(){
+  if(introMaster && ac){
+    introMaster.gain.cancelScheduledValues(ac.currentTime);
+    introMaster.gain.setTargetAtTime(0.0001, ac.currentTime, 0.08);
+  }
+  endIntro();
+}
+function enterMenu(){
+  [ui, hud, winEl].forEach(el => el.classList.add('hide'));
+  if(G.mode !== 'game' || G.won) startLevel(G.won ? Math.min(LEVELS, G.level + 1) : G.level);
+  G.mode = 'menu';
+  G.fadeT0 = performance.now();
+  G.psiAnim = null;
+  menuEl.classList.remove('hide');
+  hudUpdate();
+}
+function startGame(){
+  menuEl.classList.add('hide');
+  winEl.classList.add('hide');
+  hud.classList.remove('hide');
+  G.mode = 'game';
+  G.psiAnim = { from: G.psi, to: Math.round(G.psi / TAU) * TAU, t0: performance.now(), dur: 900 };
+  getBus();
+  hudUpdate();
+}
+
+$('play').addEventListener('click', () => { getBus(); playIntro(); });
+$('skipStart').addEventListener('click', () => { getBus(); ui.classList.add('hide'); G.fadeT0 = performance.now(); enterMenu(); });
+skipBtn.addEventListener('click', skipIntro);
+$('mStart').addEventListener('click', startGame);
+$('mIntro').addEventListener('click', playIntro);
+$('mPrev').addEventListener('click', () => { if(G.level > 1){ startLevel(G.level - 1); sfx.select(); } });
+$('mNext').addEventListener('click', () => { if(G.level < G.maxLevel){ startLevel(G.level + 1); sfx.select(); } });
+$('bTurn').addEventListener('click', turnAround);
+$('bFlip').addEventListener('click', () => { if(G.sel >= 0) flipGroup(G.rings[G.sel].gid); });
+$('bMenu').addEventListener('click', enterMenuKeep);
+$('wNext').addEventListener('click', () => { startLevel(Math.min(LEVELS, G.level + 1)); startGame(); });
+$('wMenu').addEventListener('click', () => { startLevel(Math.min(LEVELS, G.level + 1)); enterMenuKeep(); });
+
+function enterMenuKeep(){
+  [ui, hud, winEl].forEach(el => el.classList.add('hide'));
+  G.mode = 'menu';
+  G.psiAnim = null;
+  menuEl.classList.remove('hide');
+  hudUpdate();
+}
+
+function loop(now){
+  requestAnimationFrame(loop);
+  const dt = Math.min(0.05, Math.max(0, (now - lastNow) / 1000)); lastNow = now;
+  if(!pScene) return;
+  if(G.mode === 'intro') introFrame(now);
+  else if(G.mode === 'menu' || G.mode === 'game'){ updateGame(now, dt); renderGame(now); }
+}
+
+try {
+  if(!gl) throw new Error('WebGL is not available on this device.');
+  triBuf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, triBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const S = 256, v = [];
+  for(let k = 0; k < 4; k++) for(let i = 0; i < S; i++){
+    const s0 = i / S, s1 = (i + 1) / S;
+    v.push(s0,0,k, s1,0,k, s1,1,k, s0,0,k, s1,1,k, s0,1,k);
+  }
+  ringBuf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, ringBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(v), gl.STATIC_DRAW);
+  ringVerts = v.length / 3;
+  gl.enableVertexAttribArray(0);
+  pScene = program(VS, FS_SCENE);
+  pPost = program(VS, FS_POST);
+  pBg = program(VS, FS_BG);
+  pRing = program(VS_RING, FS_RING);
+  us = uniforms(pScene, ['uRes', 'uT', 'uImp', 'uRo', 'uTa', 'uSun', 'uNight']);
+  up = uniforms(pPost, ['uTex', 'uRes', 'uSun', 'uSunVis', 'uT', 'uFade', 'uFlash', 'uVig']);
+  ub = uniforms(pBg, ['uRes', 'uT', 'uPsi', 'uWin']);
+  ur = uniforms(pRing, ['uVP','uRot','uRad','uThick','uS1','uS2','uT','uType','uLock','uSel','uPulse','uJoinP','uFuse','uWin','uAxis','uCam','uL']);
+  resize();
+  startLevel(G.level);
+  bindTri();
+  draw(POSTER_T, 1, 0);
+} catch(e) {
+  errEl.textContent = String(e.message || e);
+  $('play').disabled = true;
+}
+addEventListener('resize', () => {
+  if(!pScene) return;
+  resize();
+  if(G.mode === 'boot'){ bindTri(); draw(POSTER_T, 1, 0); }
+});
+requestAnimationFrame(loop);
+</script>
+<script data-goatcounter="https://s77ffy.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>
