@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="app-repo" content="helios">
-<meta name="app-version" content="1.0.3">
+<meta name="app-version" content="1.0.7">
 <meta name="theme-color" content="#000000">
 <title>HELIOS</title>
 <style>
@@ -48,7 +48,7 @@ button{touch-action:manipulation}
 
 <div id="hud" class="hide">
   <div id="top"><div id="lvl">LEVEL 1</div><div id="prog">0 / 5 LOCKED</div></div>
-  <div id="hint">Drag a ring to spin it · match the picture to the outer frame<br>Double-tap or <b>Flip</b> to swing a ring over · <b>⟲</b> to see the other side</div>
+  <div id="hint">Every ring carries all the rings inside it · double-tap or <b>Flip</b> to swing one over<br>Line a ring up with the one around it to join · line up with the frame to lock · <b>⟲</b> back</div>
   <div id="bar">
     <button class="btn" id="bTurn" title="Turn the machine around">⟲</button>
     <button class="btn hot" id="bFlip" disabled>⇆ FLIP</button>
@@ -79,10 +79,10 @@ button{touch-action:manipulation}
   <div id="err"></div>
 </div>
 <button class="link hide" id="skipIntro">Skip ›</button>
-<div id="ver">v1.0.3</div>
+<div id="ver">v1.0.7</div>
 
 <script>
-const VERSION = '1.0.3';
+const VERSION = '1.0.7';
 
 const VS = `
 attribute vec2 p;
@@ -322,6 +322,7 @@ uniform float uSunVis;
 uniform float uT;
 uniform float uFade;
 uniform float uFlash;
+uniform float uVig;
 varying vec2 vUv;
 vec3 br(vec2 uv){ vec3 c=texture2D(uTex,uv).rgb; return max(c-0.7,0.0)*3.3; }
 void main(){
@@ -346,7 +347,7 @@ void main(){
     col+=g/40.0*vec3(1.0,0.68,0.38)*1.6*uSunVis;
   }
 
-  col*=mix(1.0,0.35,smoothstep(0.35,1.0,length(d)*1.4));
+  col*=mix(1.0,0.35+0.55*uVig,smoothstep(0.35,1.0,length(d)*1.4));
   float n=fract(sin(dot(uv*uRes+uT*60.0,vec2(12.9898,78.233)))*43758.5453);
   col+=(n-0.5)*0.035;
   col=col*uFade+vec3(uFlash);
@@ -431,6 +432,8 @@ uniform float uType;
 uniform float uLock;
 uniform float uSel;
 uniform float uPulse;
+uniform float uJoinP;
+uniform vec2 uFuse;
 uniform float uWin;
 uniform vec2 uAxis;
 uniform vec3 uCam;
@@ -556,35 +559,27 @@ void main(){
   if(vKind<1.5 && uType<2.5){
     vec2 p=vLocal;
     vec3 im = vKind<0.5 ? imgA(p) : imgB(vec2(-p.x,p.y));
-    float diff=0.75+0.35*max(dot(N,uL),0.0);
+    float diff=0.78+0.32*max(dot(N,uL),0.0);
     float fres=pow(1.0-max(dot(N,V),0.0),4.0);
-    col=im*diff+env(R)*0.06+fres*0.15+pow(max(dot(R,uL),0.0),40.0)*0.25;
-    float eo=uRad.y-r;
-    float ei=r-uRad.x;
-    if(uType>0.5 && uType<1.5) ei=1.0;
-    float e=min(eo,ei);
-    col*=mix(mix(0.35,0.8,uLock),1.0,smoothstep(0.0,0.012,e));
-    col+=vec3(0.75,0.85,1.0)*(1.0-smoothstep(0.0,0.004,eo))*0.35*(1.0-uLock);
-    col+=vec3(1.0,0.72,0.35)*(1.0-smoothstep(0.0,0.006,e))*(uLock*0.6+uPulse*2.0);
-    col+=vec3(1.0,0.72,0.35)*uPulse*0.25;
-    col+=vec3(0.3,0.85,1.0)*(1.0-smoothstep(0.0,0.009,e))*uSel*(1.3+0.5*sin(uT*8.0));
-    col+=vec3(0.08,0.22,0.32)*uSel*0.3;
-    if(uType<0.5){
+    col=im*diff+env(R)*0.05+fres*0.12+pow(max(dot(R,uL),0.0),40.0)*0.2;
+    col+=vec3(1.0,0.72,0.35)*uPulse*0.35+vec3(0.4,0.9,1.0)*uJoinP*0.3;
+    float eo=uRad.y-r, ei=r-uRad.x;
+    float se=(1.0-smoothstep(0.0,0.008,eo))*uFuse.y+(1.0-smoothstep(0.0,0.008,ei))*uFuse.x;
+    col=mix(col,vec3(0.45,0.9,1.0)*(1.4+0.4*sin(uT*7.0)),clamp(se,0.0,1.0)*0.85);
+    if(uSel>0.5){
       float dl=abs(vW.x*uAxis.y-vW.y*uAxis.x);
-      float nub=(1.0-smoothstep(0.012,0.02,dl))*(1.0-smoothstep(0.0,0.028,eo));
-      col=mix(col,vec3(0.5,0.95,1.0)*1.6,nub*(1.0-uLock*0.7));
+      float nub=(1.0-smoothstep(0.014,0.022,dl))*(1.0-smoothstep(0.0,0.03,eo));
+      col=mix(col,vec3(0.6,0.95,1.0)*1.7,nub);
     }
     if(uType>0.5 && uType<1.5){
       float pulse=0.85+0.15*sin(uT*3.0);
-      col=col*smoothstep(0.02,0.1,r)+vec3(2.4,1.5,0.85)*pulse*exp(-r*r*700.0)*(1.0+uWin*2.0);
+      col+=vec3(2.4,1.5,0.85)*pulse*exp(-r*r*700.0)*(1.0+uWin*2.0);
     }
-    if(uType>1.5) col*=0.82;
   } else {
-    vec3 base=mix(vec3(0.6,0.65,0.75),vec3(1.0,0.75,0.4),uLock);
-    if(uType>2.5) base=vec3(0.78,0.74,0.7);
-    col=base*(env(R)*1.1+0.1)+pow(max(dot(R,uL),0.0),30.0)*0.8;
+    vec3 base=vec3(0.95,0.7,0.34);
+    col=base*(env(R)*1.15+0.12)+pow(max(dot(R,uL),0.0),30.0)*0.9*vec3(1.0,0.9,0.7);
   }
-  col+=vec3(1.0,0.75,0.4)*uWin*0.25;
+  col+=vec3(1.0,0.75,0.4)*uWin*0.2;
   gl_FragColor=vec4(col,1.0);
 }
 `;
@@ -832,9 +827,10 @@ const sfx = {
   tick(){ tone(2400, 0.018, 0.035, 'triangle', 0, false); },
   select(){ tone(880, 0.035, 0.12); },
   deny(){ tone(150, 0.06, 0.16, 'square', 0, false); },
-  flip(){ whoosh(0.55, 400, 2600, 0.22); tone(180, 0.06, 0.4, 'sine', 0.3, true, 90); },
+  flip(){ whoosh(1.2, 250, 1800, 0.24); tone(110, 0.08, 1.1, 'sine', 0.1, true, 70); tone(90, 0.12, 0.5, 'sine', 1.05, false, 50); },
   snap(){ tone(1600, 0.05, 0.08, 'triangle', 0, false); tone(2400, 0.03, 0.12, 'sine', 0.03); },
   lock(){ [880, 1318.5, 1760].forEach((f, i) => tone(f, 0.055, 1.2, 'sine', i * 0.06)); },
+  join(){ tone(660, 0.05, 0.6, 'sine'); tone(990, 0.04, 0.7, 'sine', 0.05); },
   turn(){ whoosh(0.9, 200, 1200, 0.14); },
   win(){
     [220, 277.18, 329.63, 440, 554.37, 659.25].forEach((f, i) => tone(f, 0.045, 2.8, 'sine', i * 0.04));
@@ -845,12 +841,12 @@ const sfx = {
 };
 
 /* ---------- puzzle game ---------- */
-const HUB_R = 0.12, FRAME_R = 1.085, LIP_R = 1.11, GAP = 0.0016, LEVELS = 20, FOV = 35 * Math.PI / 180;
+const HUB_R = 0.12, FRAME_R = 1.085, LIP_R = 1.11, GAP = 0.004, LEVELS = 20, FOV = 35 * Math.PI / 180;
 const TAU = Math.PI * 2;
 const wrap = a => a - TAU * Math.round(a / TAU);
 const ease = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
 const G = { mode:'boot', level:1, maxLevel:1, n:5, w:0.176, rings:[], sel:-1, tol:0.2, seed:[0,0,0,0,0,0,0,0],
-  psi:0, psiAnim:null, won:false, winT:0, cap:15, ppu:150, D:4, halfH:1, fadeT0:0, lastTap:{i:-1,t:0}, cam:null };
+  psi:0, psiAnim:null, scrEnd:0, op:null, won:false, winT:0, cap:15, ppu:150, D:4, halfH:1, fadeT0:0, lastTap:{i:-1,t:0}, cam:null };
 try {
   G.maxLevel = Math.max(1, Math.min(LEVELS, parseInt(localStorage.getItem('helios-max'), 10) || 1));
   G.level = G.maxLevel;
@@ -861,13 +857,16 @@ function mulberry32(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t
 function viewMetrics(){
   const W = innerWidth, H = innerHeight;
   const coarse = matchMedia('(pointer:coarse)').matches;
-  const span = 2 * LIP_R + 0.04;
+  const span = 2 * LIP_R + 0.06;
   G.ppu = Math.max(40, Math.min((W - 16) / span, (H - 170) / span));
   G.halfH = (H / 2) / G.ppu;
   G.D = G.halfH / Math.tan(FOV / 2);
   const minW = coarse ? 9 : 7;
   G.cap = Math.max(5, Math.min(100, Math.floor(((1 - HUB_R) * G.ppu / minW) / 5) * 5));
 }
+
+const THICK = 0.07;
+function compose(p, r){ return p.d > 0 ? { th: p.th + r.th, d: r.d } : { th: p.th - r.th, d: -r.d }; }
 
 function startLevel(L){
   G.level = L;
@@ -876,12 +875,28 @@ function startLevel(L){
   G.tol = Math.max(4, 12 - (L - 1) * 0.45) * Math.PI / 180;
   const rnd = mulberry32(L * 7919 + 13);
   G.seed = Array.from({length: 8}, () => rnd());
-  G.rings = [];
+  // each ring gets a random orientation relative to the ring around it (flips favoured)
+  const rel = [];
   for(let i = 0; i < G.n; i++){
-    let th; do { th = (Math.random() * 2 - 1) * Math.PI; } while(Math.abs(th) < 0.6);
-    G.rings.push({ th, d: Math.random() < 0.5 ? 1 : -1, axis: Math.random() < 0.5 ? 'h' : 'v', locked:false, flip:null, snap:null, pulseT:-1e9 });
+    const d = Math.random() < 0.6 ? -1 : 1;
+    let th = (Math.random() * 2 - 1) * Math.PI;
+    while(d === 1 && Math.abs(th) < 0.6) th = (Math.random() * 2 - 1) * Math.PI;
+    rel.push({ th, d });
   }
-  G.sel = -1; G.won = false; G.winT = 0;
+  G.rings = new Array(G.n);
+  let W = { th: 0, d: 1 };
+  for(let i = G.n - 1; i >= 0; i--){
+    W = compose(W, rel[i]);
+    G.rings[i] = { th: wrap(W.th), d: W.d, ax: Math.random() < 0.5 ? 0 : Math.PI / 2, gid: i, locked: false, pulseT: -1e9, joinT: -1e9, scr: null };
+  }
+  G.sel = -1; G.won = false; G.winT = 0; G.op = null;
+  const t0 = performance.now() + 900, step = Math.min(70, 1000 / G.n);
+  G.scrEnd = 0;
+  G.rings.forEach((r, i) => {
+    r.scr = { t0: t0 + (G.n - 1 - i) * step, dur: 1900, extra: TAU * (i % 2 ? 1 : -1) * (i % 3 === 0 ? 2 : 1), flip: r.d < 0 };
+    G.scrEnd = Math.max(G.scrEnd, r.scr.t0 + r.scr.dur);
+  });
+  if(ac) setTimeout(() => sfx.turn(), 900);
   hudUpdate();
 }
 
@@ -893,19 +908,31 @@ function rx(a){ const c = Math.cos(a), s = Math.sin(a); return [1,0,0, 0,c,-s, 0
 const I3 = [1,0,0, 0,1,0, 0,0,1];
 const colMajor = m => new Float32Array([m[0],m[3],m[6], m[1],m[4],m[7], m[2],m[5],m[8]]);
 
-function ringMatrix(rg, now){
+function ringMatrix(j, now){
+  const rg = G.rings[j];
+  if(rg.scr){
+    const x = Math.min(1, Math.max(0, (now - rg.scr.t0) / rg.scr.dur));
+    if(x >= 1) rg.scr = null;
+    else {
+      const e = ease(x), ef = ease(Math.min(1, Math.max(0, (x - 0.15) / 0.7)));
+      if(!rg.scr.flip) return rz((rg.th + rg.scr.extra) * e);
+      return mul3(rz((rg.th + rg.scr.extra) * e), ry(Math.PI * ef));
+    }
+  }
   let M = mul3(rz(rg.th), rg.d < 0 ? ry(Math.PI) : I3);
-  if(rg.flip){
-    const s = ease(Math.min(1, (now - rg.flip.t0) / rg.flip.dur));
-    M = mul3(rg.axis === 'h' ? ry(Math.PI * s) : rx(Math.PI * s), M);
+  const op = G.op;
+  if(op && j <= op.k){
+    const s = ease(Math.min(1, Math.max(0, (now - op.t0) / op.dur)));
+    const A = op.kind === 'flip' ? mul3(rz(op.phi), mul3(rx(Math.PI * s), rz(-op.phi))) : rz(op.delta * s);
+    M = mul3(A, M);
   }
   return M;
 }
 
 function gameCam(now){
   const t = now / 1000;
-  const el = 0.035 * Math.sin(t * 0.5);
-  const az = G.psi + 0.03 * Math.sin(t * 0.37);
+  const el = 0.22 + 0.025 * Math.sin(t * 0.5);
+  const az = G.psi + 0.04 * Math.sin(t * 0.37);
   const D = G.D;
   const eye = [Math.sin(az) * Math.cos(el) * D, Math.sin(el) * D, Math.cos(az) * Math.cos(el) * D];
   const f = norm([-eye[0], -eye[1], -eye[2]]);
@@ -927,45 +954,63 @@ function pickWorld(cx, cy){
   const th = Math.tan(FOV / 2);
   const d = norm([c.f[0] + c.r[0]*nx*th*c.asp + c.u[0]*ny*th, c.f[1] + c.r[1]*nx*th*c.asp + c.u[1]*ny*th, c.f[2] + c.r[2]*nx*th*c.asp + c.u[2]*ny*th]);
   if(Math.abs(d[2]) < 1e-4) return null;
-  const t = -c.eye[2] / d[2];
+  const zf = Math.cos(G.psi) >= 0 ? THICK : -THICK;
+  const t = (zf - c.eye[2]) / d[2];
   if(t < 0) return null;
   return [c.eye[0] + d[0]*t, c.eye[1] + d[1]*t];
 }
 function ringAt(p){
   if(!p) return -1;
   const r = Math.hypot(p[0], p[1]);
-  if(r < HUB_R || r > 1) return -1;
-  return Math.min(G.n - 1, Math.floor((r - HUB_R) / G.w));
+  if(r > 1) return -1;
+  return Math.max(0, Math.min(G.n - 1, Math.floor((r - HUB_R) / G.w)));
 }
-const interactive = () => G.mode === 'game' && !G.won && !G.psiAnim && Math.abs(Math.sin(G.psi)) < 0.12;
-const isCorrect = i => i < 0 || i >= G.n || (G.rings[i].d === 1 && !G.rings[i].flip && !G.rings[i].snap && Math.abs(wrap(G.rings[i].th)) < 1e-4);
-
-function flipRing(i){
-  const rg = G.rings[i];
-  if(!rg || rg.locked || rg.flip || rg.snap) return;
-  rg.flip = { t0: performance.now(), dur: 560 };
+const busy = () => !!G.op || G.rings.some(r => r.scr);
+const interactive = () => G.mode === 'game' && !G.won && !G.psiAnim && !busy() && Math.abs(Math.sin(G.psi)) < 0.12;
+const members = g => { const o = []; for(let i = 0; i < G.n; i++) if(G.rings[i].gid === g) o.push(i); return o; };
+const outerOf = g => { let h = -1; for(let i = 0; i < G.n; i++) if(G.rings[i].gid === g) h = i; return h; };
+/* a ring's pivots are mounted on the ring around it, so its hinge line turns with that ring */
+function axisAngle(k){
+  const a = G.rings[k].ax;
+  if(k === G.n - 1) return a;
+  const p = G.rings[k + 1];
+  return p.d > 0 ? p.th + a : p.th - a;
+}
+function flipGroup(g){
+  const h = outerOf(g);
+  if(h < 0 || G.rings[h].locked || busy()) return;
+  const phi = axisAngle(h);
+  G.op = { k: h, kind: 'flip', phi, t0: performance.now(), dur: 1200, then: () => {
+    for(let j = 0; j <= h; j++){ const r = G.rings[j]; r.th = wrap(2 * phi + Math.PI - r.th); r.d = -r.d; }
+    settle(G.rings[h].gid);
+  }};
   sfx.flip();
 }
-function trySnap(i){
-  const rg = G.rings[i];
-  rg.th = wrap(rg.th);
-  if(rg.d === 1 && Math.abs(rg.th) < G.tol && Math.abs(rg.th) > 1e-6){
-    rg.snap = { from: rg.th, t0: performance.now() };
-    sfx.snap();
-  } else evaluateLocks();
-}
-function evaluateLocks(){
-  const fresh = [];
-  for(let i = 0; i < G.n; i++){
-    const rg = G.rings[i];
-    if(!rg.locked && isCorrect(i) && (isCorrect(i - 1) || isCorrect(i + 1))){ rg.locked = true; rg.pulseT = performance.now(); fresh.push(i); }
-  }
-  if(fresh.length){
-    sfx.lock();
-    if(fresh.includes(G.sel)) G.sel = -1;
-  }
-  hudUpdate();
-  if(G.rings.every(r => r.locked)) win();
+/* after a move: if the moved group now sits true to the ring around it (or the frame), join/lock */
+function settle(g){
+  const h = outerOf(g);
+  if(h < 0) return;
+  const r = G.rings[h];
+  for(let j = 0; j <= h; j++) G.rings[j].th = wrap(G.rings[j].th);
+  if(r.locked){ hudUpdate(); return; }
+  const frame = h === G.n - 1;
+  const pth = frame ? 0 : G.rings[h + 1].th, pd = frame ? 1 : G.rings[h + 1].d;
+  const diff = wrap(pth - r.th);
+  if(r.d !== pd || Math.abs(diff) >= G.tol){ hudUpdate(); return; }
+  const done = () => {
+    for(let j = 0; j <= h; j++) G.rings[j].th = wrap(G.rings[j].th + diff);
+    const now = performance.now();
+    const pg = frame ? null : G.rings[h + 1].gid;
+    const lk = frame || G.rings[h + 1].locked;
+    members(g).forEach(j => { const q = G.rings[j]; if(pg !== null) q.gid = pg; if(lk){ q.locked = true; q.pulseT = now; } });
+    if(!lk) members(pg).forEach(j => G.rings[j].joinT = now);
+    if(lk) sfx.lock(); else sfx.join();
+    if(G.sel >= 0 && G.rings[G.sel].locked) G.sel = -1;
+    hudUpdate();
+    if(G.rings.every(q => q.locked)) win();
+  };
+  if(Math.abs(diff) < 1e-6) done();
+  else { G.op = { k: h, kind: 'snap', delta: diff, t0: performance.now(), dur: 240, then: done }; sfx.snap(); }
 }
 function win(){
   if(G.won) return;
@@ -998,22 +1043,12 @@ function updateGame(now, dt){
     if(x >= 1){ G.psi = Math.atan2(Math.sin(a.to), Math.cos(a.to)); G.psiAnim = a.next ? { from: G.psi, to: G.psi + a.next.delta, t0: now + a.next.delay, dur: a.next.dur } : null; if(a.next) sfx.turn(); }
     else if(x > 0) G.psi = a.from + (a.to - a.from) * ease(x);
   }
-  for(let i = 0; i < G.n; i++){
-    const rg = G.rings[i];
-    if(rg.flip && now - rg.flip.t0 >= rg.flip.dur){
-      rg.th = wrap(rg.axis === 'h' ? -rg.th : Math.PI - rg.th);
-      rg.d = -rg.d; rg.flip = null;
-      trySnap(i);
-    }
-    if(rg.snap){
-      const x = (now - rg.snap.t0) / 160;
-      if(x >= 1){ rg.th = 0; rg.snap = null; evaluateLocks(); }
-      else rg.th = rg.snap.from * (1 - ease(x));
-    }
-  }
+  if(G.op && now >= G.op.t0 + G.op.dur){ const op = G.op; G.op = null; op.then(); }
 }
 
-function drawPiece(r0, r1, thick, type, M, lock, sel, pulse, axis){
+function drawPiece(r0, r1, thick, type, M, lock, sel, pulse, axis, fuse, joinP){
+  gl.uniform2f(ur.uFuse, fuse[0], fuse[1]);
+  gl.uniform1f(ur.uJoinP, joinP);
   gl.uniform2f(ur.uRad, r0, r1);
   gl.uniform1f(ur.uThick, thick);
   gl.uniform1f(ur.uType, type);
@@ -1053,15 +1088,21 @@ function renderGame(now){
   gl.uniform3fv(ur.uCam, cam.eye);
   gl.uniform3fv(ur.uL, cam.L);
   const none = [0, 1];
-  drawPiece(0, HUB_R - GAP, 0.014, 1, I3, 1, 0, 0, none);
-  drawPiece(1 + GAP, FRAME_R, 0.02, 2, I3, 1, 0, 0, none);
-  drawPiece(FRAME_R, LIP_R, 0.035, 3, I3, 0, 0, 0, none);
+  drawPiece(1, FRAME_R, 0.08, 2, I3, 1, 0, 0, none, [0, 0], 0);
+  drawPiece(FRAME_R, LIP_R, 0.09, 4, I3, 1, 0, 0, none, [0, 0], 0);
+  const selG = G.sel >= 0 && G.rings[G.sel] ? G.rings[G.sel].gid : -1;
+  let selLo = -1, selHi = -1;
+  if(selG >= 0){ const m = members(selG); selLo = m[0]; selHi = m[m.length - 1]; }
+  const selPhi = selHi >= 0 ? axisAngle(selHi) : 0;
+  const selAxis = [Math.cos(selPhi), Math.sin(selPhi)];
   for(let i = 0; i < G.n; i++){
     const rg = G.rings[i];
-    const r0 = HUB_R + i * G.w + GAP, r1 = HUB_R + (i + 1) * G.w - GAP;
     let pulse = Math.max(0, 1 - (now - rg.pulseT) / 700);
     if(G.won) pulse = Math.max(pulse, 1 - Math.abs((now - G.winT) / 1000 * 3 - i / G.n * 2.5) * 1.5);
-    drawPiece(r0, r1, 0.01, 0, ringMatrix(rg, now), rg.locked ? 1 : 0, i === G.sel ? 1 : 0, pulse, rg.axis === 'h' ? [0, 1] : [1, 0]);
+    const joinP = Math.max(0, 1 - (now - rg.joinT) / 600);
+    const r0 = i === 0 ? 0 : HUB_R + i * G.w, r1 = HUB_R + (i + 1) * G.w;
+    const fuse = [(i === selLo && i > 0) ? 1 : 0, i === selHi ? 1 : 0];
+    drawPiece(r0, r1, THICK, i === 0 ? 1 : 0, ringMatrix(i, now), rg.locked ? 1 : 0, i === selHi ? 1 : 0, pulse, selAxis, fuse, joinP);
   }
   gl.disable(gl.DEPTH_TEST);
 
@@ -1080,6 +1121,7 @@ function renderGame(now){
   gl.uniform1f(up.uT, t);
   gl.uniform1f(up.uFade, fade);
   gl.uniform1f(up.uFlash, flash);
+  gl.uniform1f(up.uVig, 1);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
 
@@ -1092,10 +1134,11 @@ cv.addEventListener('pointerdown', e => {
   const p = interactive() ? pickWorld(e.clientX, e.clientY) : null;
   const i = ringAt(p);
   if(i >= 0){
-    const rg = G.rings[i];
-    if(rg.locked){ rg.pulseT = performance.now(); sfx.deny(); drag = null; return; }
-    if(G.sel !== i){ G.sel = i; sfx.select(); hudUpdate(); }
-    drag = { type:'ring', i, last: Math.atan2(p[1], p[0]), x: e.clientX, y: e.clientY, moved:false };
+    const h = outerOf(G.rings[i].gid);
+    if(G.rings[h].locked){ members(G.rings[i].gid).forEach(j => G.rings[j].pulseT = performance.now()); sfx.deny(); drag = null; return; }
+    if(G.sel < 0 || G.rings[G.sel].gid !== G.rings[i].gid) sfx.select();
+    G.sel = i; hudUpdate();
+    drag = { type:'ring', i, h, last: Math.atan2(p[1], p[0]), x: e.clientX, y: e.clientY, moved:false };
   } else {
     drag = { type:'orbit', lastX: e.clientX, x: e.clientX, moved:false };
   }
@@ -1103,14 +1146,13 @@ cv.addEventListener('pointerdown', e => {
 cv.addEventListener('pointermove', e => {
   if(!drag) return;
   if(drag.type === 'ring'){
-    const rg = G.rings[drag.i];
-    if(rg.flip || rg.snap || rg.locked) return;
+    if(busy() || G.rings[drag.h].locked) return;
     const p = pickWorld(e.clientX, e.clientY); if(!p) return;
     const a = Math.atan2(p[1], p[0]);
     const d = wrap(a - drag.last); drag.last = a;
     if(!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 6) drag.moved = true;
     if(drag.moved){
-      rg.th += d;
+      for(let j = 0; j <= drag.h; j++) G.rings[j].th += d;
       tickAcc += Math.abs(d);
       if(tickAcc > 0.26){ tickAcc = 0; sfx.tick(); }
     }
@@ -1123,11 +1165,12 @@ cv.addEventListener('pointermove', e => {
 function endDrag(){
   if(!drag) return;
   if(drag.type === 'ring'){
+    const g = G.rings[drag.i].gid;
     if(!drag.moved){
       const now = performance.now();
-      if(G.lastTap.i === drag.i && now - G.lastTap.t < 340){ flipRing(drag.i); G.lastTap = {i:-1, t:0}; }
+      if(G.lastTap.i >= 0 && G.rings[G.lastTap.i].gid === g && now - G.lastTap.t < 340){ flipGroup(g); G.lastTap = {i:-1, t:0}; }
       else G.lastTap = { i: drag.i, t: now };
-    } else trySnap(drag.i);
+    } else settle(g);
   } else if(drag.moved && !G.psiAnim){
     const to = Math.round(G.psi / Math.PI) * Math.PI;
     G.psiAnim = { from: G.psi, to, t0: performance.now(), dur: 450 };
@@ -1151,8 +1194,9 @@ function hudUpdate(){
   $('prog').textContent = locked + ' / ' + G.n + ' LOCKED';
   const sel = G.rings[G.sel];
   const fb = $('bFlip');
-  fb.disabled = !sel || sel.locked || G.won;
-  fb.innerHTML = (sel && sel.axis === 'v' ? '⇅' : '⇆') + ' FLIP';
+  fb.disabled = !sel || G.rings[outerOf(sel.gid)].locked || G.won;
+  const phi = sel ? axisAngle(outerOf(sel.gid)) : Math.PI / 2;
+  fb.innerHTML = (Math.abs(Math.sin(phi)) > 0.707 ? '⇆' : '⇅') + ' FLIP';
   $('hint').classList.toggle('hide', G.level > 2);
   $('mLvl').textContent = 'LEVEL ' + G.level + ' · ' + G.n + ' RINGS';
   $('mPrev').disabled = G.level <= 1;
@@ -1175,6 +1219,7 @@ function introFrame(now){
   if(t > 3.3 && t < 3.6) flash += Math.pow(1 - (t - 3.3) / 0.3, 2) * 0.7;
   if(t > 8.6 && t < 9.1) flash += Math.pow(1 - (t - 8.6) / 0.5, 2) * 1.0;
   bindTri();
+  gl.useProgram(pPost); gl.uniform1f(up.uVig, 0);
   draw(t, fade, flash);
   if(titleStage === 0 && t > 3.55){ titleEl.className = 'on'; titleStage = 1; }
   if(titleStage === 1 && t > 4.9){ titleEl.className = 'on out'; titleStage = 2; }
@@ -1222,7 +1267,7 @@ $('mIntro').addEventListener('click', playIntro);
 $('mPrev').addEventListener('click', () => { if(G.level > 1){ startLevel(G.level - 1); sfx.select(); } });
 $('mNext').addEventListener('click', () => { if(G.level < G.maxLevel){ startLevel(G.level + 1); sfx.select(); } });
 $('bTurn').addEventListener('click', turnAround);
-$('bFlip').addEventListener('click', () => { if(G.sel >= 0) flipRing(G.sel); });
+$('bFlip').addEventListener('click', () => { if(G.sel >= 0) flipGroup(G.rings[G.sel].gid); });
 $('bMenu').addEventListener('click', enterMenuKeep);
 $('wNext').addEventListener('click', () => { startLevel(Math.min(LEVELS, G.level + 1)); startGame(); });
 $('wMenu').addEventListener('click', () => { startLevel(Math.min(LEVELS, G.level + 1)); enterMenuKeep(); });
@@ -1263,9 +1308,9 @@ try {
   pBg = program(VS, FS_BG);
   pRing = program(VS_RING, FS_RING);
   us = uniforms(pScene, ['uRes', 'uT', 'uImp', 'uRo', 'uTa', 'uSun', 'uNight']);
-  up = uniforms(pPost, ['uTex', 'uRes', 'uSun', 'uSunVis', 'uT', 'uFade', 'uFlash']);
+  up = uniforms(pPost, ['uTex', 'uRes', 'uSun', 'uSunVis', 'uT', 'uFade', 'uFlash', 'uVig']);
   ub = uniforms(pBg, ['uRes', 'uT', 'uPsi', 'uWin']);
-  ur = uniforms(pRing, ['uVP','uRot','uRad','uThick','uS1','uS2','uT','uType','uLock','uSel','uPulse','uWin','uAxis','uCam','uL']);
+  ur = uniforms(pRing, ['uVP','uRot','uRad','uThick','uS1','uS2','uT','uType','uLock','uSel','uPulse','uJoinP','uFuse','uWin','uAxis','uCam','uL']);
   resize();
   startLevel(G.level);
   bindTri();
