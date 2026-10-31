@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="app-repo" content="helios">
-<meta name="app-version" content="1.1.0">
+<meta name="app-version" content="1.1.2">
 <meta name="theme-color" content="#000000">
 <title>HELIOS</title>
 <style>
@@ -41,7 +41,7 @@ button{touch-action:manipulation}
 .pick .btn{padding:8px 14px}
 .btn.off{opacity:.4;text-decoration:line-through}
 .row{display:flex;gap:4px;flex-wrap:wrap;justify-content:center}
-#track{position:fixed;left:0;right:0;top:calc(max(12px,env(safe-area-inset-top)) + 42px);text-align:center;font-size:10px;letter-spacing:.24em;color:rgba(255,255,255,.85);opacity:0;transition:opacity 1s ease;pointer-events:none;padding:0 16px}
+#track{position:fixed;left:0;right:0;top:calc(max(12px,env(safe-area-inset-top)) + 60px);text-align:center;font-size:10px;letter-spacing:.24em;color:rgba(255,255,255,.85);opacity:0;transition:opacity 1s ease;pointer-events:none;padding:0 16px}
 #track.on{opacity:.8}
 #dimCard{position:fixed;left:0;right:0;top:15%;text-align:center;pointer-events:none;opacity:0;transform:translateY(12px);transition:opacity .9s ease,transform 1.4s ease;padding:0 12px}
 #dimCard.on{opacity:1;transform:none}
@@ -65,15 +65,23 @@ button{touch-action:manipulation}
 .node.sel{background:rgba(255,255,255,.14);transform:scale(1.12)}
 .depth{position:absolute;font-size:10px;letter-spacing:.12em;opacity:.45;transform:translateY(-50%);white-space:nowrap}
 @keyframes pulse{50%{box-shadow:0 0 0 7px rgba(255,255,255,.04),0 0 34px var(--c)}}
+.mTop,.mBot{display:flex;flex-direction:column;align-items:center;gap:12px}
+.mBot{gap:10px}
+#menu{justify-content:space-between;padding:calc(max(10px,env(safe-area-inset-top)) + 22px) 14px calc(max(10px,env(safe-area-inset-bottom)) + 6px)}
+#menu .h2{font-size:clamp(34px,10vw,72px)}
+#mDim{font-size:11px;letter-spacing:.3em;padding-left:.3em;opacity:.85}
+#dep{font-size:10px;opacity:.5;margin-top:4px;letter-spacing:.22em}
+#soundChip{position:fixed;left:50%;bottom:calc(max(16px,env(safe-area-inset-bottom)) + 10px);transform:translateX(-50%);font-size:12px;letter-spacing:.2em;padding:10px 18px;border-radius:999px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.35);color:#fff;pointer-events:none;animation:chip 2s ease-in-out infinite}
+@keyframes chip{50%{opacity:.45}}
 #ver{position:fixed;right:max(10px,env(safe-area-inset-right));top:max(8px,env(safe-area-inset-top));font-size:10px;opacity:.35;letter-spacing:.1em;pointer-events:none}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
-<div id="title"><h1>HELIOS</h1><p id="sub">real-time · raymarched · one file</p></div>
+<div id="title"><h1>HELIOS</h1><p id="sub">a journey into the deep</p></div>
 
 <div id="hud" class="hide">
-  <div id="top"><div id="lvl">LEVEL 1</div><div id="prog">0 / 5 LOCKED</div></div>
+  <div id="top"><div id="lvl">GATE 1</div><div id="prog">0 / 5 RINGS ALIGNED</div><div id="dep"></div></div>
   <div id="hint">Every ring carries all the rings inside it · double-tap or <b>Flip</b> to swing one over<br>Line a ring up with the one around it to join · line up with the frame to lock · <b>⟲</b> back</div>
   <div id="bar">
     <button class="btn" id="bTurn" title="Turn the machine around">⟲</button>
@@ -84,16 +92,21 @@ button{touch-action:manipulation}
 </div>
 
 <div id="menu" class="overlay hide">
-  <div class="tag" id="mDim">DIMENSION I · SOL GATE</div>
-  <div class="h2">HELIOS</div>
-  <div class="pick"><button class="btn" id="mPrev">‹</button><span id="mLvl">LEVEL 1 · 5 RINGS</span><button class="btn" id="mNext">›</button></div>
-  <div class="sub" id="mDepth"></div>
-  <button class="big" id="mStart">▶&nbsp; START</button>
-  <div class="row"><button class="link" id="mMap">◎ Journey map</button><button class="link" id="mMusic">♪ Music on</button><button class="link" id="mIntro">Replay intro</button></div>
+  <div class="mTop">
+    <div class="tag" id="mDim">DIMENSION I · SOL GATE</div>
+    <div class="h2">HELIOS</div>
+  </div>
+  <div class="mBot">
+    <div class="pick"><button class="btn" id="mPrev">‹</button><span id="mLvl">GATE 1 · 5 RINGS</span><button class="btn" id="mNext">›</button></div>
+    <div class="sub" id="mDepth"></div>
+    <div class="sub" id="mTrack"></div>
+    <button class="big" id="mStart">▶&nbsp; ENGAGE</button>
+    <div class="row"><button class="link" id="mMap">◎ Star chart</button><button class="link" id="mMusic">♪ Soundtrack on</button><button class="link" id="mIntro">Replay launch</button></div>
+  </div>
 </div>
 
 <div id="map" class="hide">
-  <div id="mapTop"><div><div class="tag">THE JOURNEY</div><div class="sub" id="mapSub"></div></div><button class="btn" id="mapClose">✕</button></div>
+  <div id="mapTop"><div><div class="tag">STAR CHART</div><div class="sub" id="mapSub"></div></div><button class="btn" id="mapClose">✕</button></div>
   <div id="mapScroll"><div id="mapInner"></div></div>
 </div>
 
@@ -108,7 +121,7 @@ button{touch-action:manipulation}
   <button class="link" id="wMenu">Menu</button>
 </div>
 
-<div id="ui" class="overlay">
+<div id="ui" class="overlay hide">
   <div class="tag">HELIOS</div>
   <button class="big" id="play">▶&nbsp; PLAY</button>
   <div class="sub">sound on</div>
@@ -116,10 +129,10 @@ button{touch-action:manipulation}
   <div id="err"></div>
 </div>
 <button class="link hide" id="skipIntro">Skip ›</button>
-<div id="ver">v1.1.0</div>
+<div id="ver">v1.1.2</div>
 
 <script>
-const VERSION = '1.1.0';
+const VERSION = '1.1.2';
 
 const VS = `
 attribute vec2 p;
@@ -421,6 +434,7 @@ uniform float uEl;
 uniform float uDim;
 uniform float uLocal;
 uniform float uWarp;
+uniform float uOff;
 ` + NOISE + `
 float HX;
 float starsL(vec2 q, float dens, float th, float seed){
@@ -561,12 +575,13 @@ void main(){
   if(uDim<0.5) col=envSol(uv,q);
   else if(uDim<1.5) col=envVeil(uv,q);
   else if(uDim<2.5) col=envShards(uv,q);
-  else if(uDim<3.5) col=envHorizon(uv,q);
+  else if(uDim<3.5) col=envHorizon(uv-vec2(0.0,uOff),q);
   else col=envDark(uv,q);
   col*=1.0-0.4*uLocal;
-  float r=length(uv);
+  vec2 uc=uv-vec2(0.0,uOff);
+  float r=length(uc);
   col+=vec3(1.0,0.5,0.2)*(0.05+uWin*0.5)/(1.0+r*r*10.0);
-  vec2 pu=vec2(uv.x,uv.y/max(cos(uEl),0.5));
+  vec2 pu=vec2(uc.x,uc.y/max(cos(uEl),0.5));
   float pr=length(pu)/uPR;
   if(pr<1.0){
     float a=atan(pu.y,pu.x);
@@ -1416,11 +1431,11 @@ function impulse(ctx, secs){
   for(let ch = 0; ch < 2; ch++){ const d = b.getChannelData(ch); for(let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
   return b;
 }
-function soundtrack(){
+function soundtrack(off){
   const AC = window.AudioContext || window.webkitAudioContext;
   if(!AC) return;
   ac = ac || new AC(); ac.resume();
-  const T = ac.currentTime + 0.03;
+  const NOW = ac.currentTime, T = NOW + 0.03 - (off || 0);
   const master = ac.createGain(); master.gain.value = 0.7; introMaster = master;
   const comp = ac.createDynamicsCompressor(); master.connect(comp); comp.connect(ac.destination);
   const rev = ac.createConvolver(); rev.buffer = impulse(ac, 2.8);
@@ -1428,6 +1443,7 @@ function soundtrack(){
   const nb = noiseBuf(ac, 4);
 
   function pad(t0, t1, freqs, fLo, fHi, tPeak, fadeIn, fadeOutStart){
+    if(t1 < NOW + 0.2) return;
     const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 4;
     lp.frequency.setValueAtTime(fLo, t0); lp.frequency.exponentialRampToValueAtTime(fHi, tPeak); lp.frequency.exponentialRampToValueAtTime(fLo * 1.5, t1);
     const g = ac.createGain();
@@ -1443,6 +1459,7 @@ function soundtrack(){
     });
   }
   function riser(t0, t1, peak){
+    if(t1 < NOW + 0.1) return;
     const ns = ac.createBufferSource(); ns.buffer = nb;
     const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 6;
     bp.frequency.setValueAtTime(300, t0); bp.frequency.exponentialRampToValueAtTime(7000, t1);
@@ -1452,6 +1469,7 @@ function soundtrack(){
     ns.start(t0); ns.stop(t1 + 0.2);
   }
   function hit(I, size){
+    if(I < NOW) return;
     const so = ac.createOscillator(); so.type = 'sine';
     so.frequency.setValueAtTime(140, I); so.frequency.exponentialRampToValueAtTime(36, I + 0.8 * size);
     const sg = ac.createGain();
@@ -1465,6 +1483,7 @@ function soundtrack(){
     [1318.5, 1760, 1975.5, 2637].forEach((f, i) => bell(I + 0.05 + i * 0.07, f, 0.06, 1.5));
   }
   function bell(s, f, vol, len){
+    if(s < NOW) return;
     const o = ac.createOscillator(); o.type = 'sine'; o.frequency.value = f;
     const g = ac.createGain();
     g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(vol, s + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, s + len);
@@ -1551,7 +1570,9 @@ const dimOf = L => Math.min(DIMS.length - 1, Math.floor((L - 1) / 10));
 const depthLy = L => 4.2 * Math.pow(1.32, L - 1);
 function fmtDepth(L){
   const v = depthLy(L);
-  return v < 1000 ? v.toFixed(v < 100 ? 1 : 0) + ' ly' : v < 1e6 ? (v / 1000).toFixed(v < 1e4 ? 1 : 0) + ' kly' : (v / 1e6).toFixed(2) + ' Mly';
+  if(v < 100) return v.toFixed(1) + ' light years';
+  if(v < 1e6) return Math.round(v).toLocaleString('en-GB') + ' light years';
+  return (v / 1e6).toFixed(2) + ' million light years';
 }
 
 /* ---------- procedural EDM: one track per level ---------- */
@@ -1817,8 +1838,11 @@ function mStep(T, n, t){
 }
 
 function showTrack(T){
+  const txt = '♪ ' + T.title.toUpperCase() + ' · ' + DIMS[T.g].genre + ' · ' + T.bpm + ' BPM';
+  const m = document.getElementById('mTrack'); if(m) m.textContent = txt;
   const el = document.getElementById('track'); if(!el) return;
-  el.textContent = '♪ ' + T.title.toUpperCase() + ' · ' + DIMS[T.g].genre + ' · ' + T.bpm + ' BPM';
+  el.textContent = txt;
+  if(G.mode !== 'game') return;
   el.classList.add('on'); clearTimeout(el._t);
   el._t = setTimeout(() => el.classList.remove('on'), 5500);
 }
@@ -1829,7 +1853,7 @@ const TAU = Math.PI * 2;
 const wrap = a => a - TAU * Math.round(a / TAU);
 const ease = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
 const G = { mode:'boot', level:1, maxLevel:1, n:5, w:0.176, rings:[], sel:-1, tol:0.2, seed:[0,0,0,0,0,0,0,0],
-  psi:0, psiAnim:null, op:null, travel:null, dk:1, openK:0, warpK:0, flashK:0, cardShown:false, shuf:null, shufK:0, camT:0, style:[0,0], won:false, winT:0, cap:15, ppu:150, D:4, halfH:1, fadeT0:0, lastTap:{i:-1,t:0}, cam:null };
+  psi:0, psiAnim:null, op:null, travel:null, menuK:0, menuDk:1, menuOff:0, yOff:0, dk:1, openK:0, warpK:0, flashK:0, cardShown:false, shuf:null, shufK:0, camT:0, style:[0,0], won:false, winT:0, cap:15, ppu:150, D:4, halfH:1, fadeT0:0, lastTap:{i:-1,t:0}, cam:null };
 try {
   G.maxLevel = Math.max(1, Math.min(LEVELS, parseInt(localStorage.getItem('helios-max'), 10) || 1));
   G.level = G.maxLevel;
@@ -1948,6 +1972,7 @@ function gameCam(now){
   const V = [r[0],u[0],-f[0],0, r[1],u[1],-f[1],0, r[2],u[2],-f[2],0, -dot(r,eye),-dot(u,eye),dot(f,eye),1];
   const VP = new Array(16);
   for(let c = 0; c < 4; c++) for(let rr = 0; rr < 4; rr++){ let s = 0; for(let k = 0; k < 4; k++) s += P[k*4+rr] * V[c*4+k]; VP[c*4+rr] = s; }
+  for(let c = 0; c < 4; c++) VP[c*4+1] += G.yOff * VP[c*4+3];
   const L = norm([r[0]*0.35 + u[0]*0.55 - f[0]*0.75, r[1]*0.35 + u[1]*0.55 - f[1]*0.75, r[2]*0.35 + u[2]*0.55 - f[2]*0.75]);
   return { eye, f, r, u, asp, el, VP: new Float32Array(VP), L };
 }
@@ -2027,12 +2052,13 @@ function win(){
   setTimeout(() => {
     if(G.mode !== 'game' || !G.won) return;
     const last = G.level >= LEVELS;
-    $('wTag').textContent = 'LEVEL ' + G.level + ' COMPLETE';
+    $('wTag').textContent = 'GATE ' + G.level + ' ALIGNED';
+    $('wNext').innerHTML = 'WARP TO GATE ' + (G.level + 1) + ' ›';
     $('wTitle').textContent = last ? 'ALL GATES OPEN' : 'GATE OPEN';
     const nd = !last && dimOf(G.level + 1) !== dimOf(G.level);
-    $('wSub').textContent = last ? fmtDepth(G.level) + ' from home · nothing left but the dark'
-      : nd ? 'The way into ' + DIMS[dimOf(G.level + 1)].name + ' is open'
-      : fmtDepth(G.level) + ' from home';
+    $('wSub').textContent = last ? fmtDepth(G.level) + ' from Earth · nothing left but the dark'
+      : nd ? 'A passage to ' + DIMS[dimOf(G.level + 1)].name + ' has opened'
+      : fmtDepth(G.level) + ' from Earth';
     $('wNext').classList.toggle('hide', last);
     winEl.classList.remove('hide');
   }, 7400);
@@ -2048,6 +2074,9 @@ function updateGame(now, dt){
   if(G.mode === 'menu' && !G.psiAnim) G.psi += dt * 0.25;
   G.camT += dt;
   G.shufK += ((G.shuf && !G.travel ? 1 : 0) - G.shufK) * Math.min(1, dt * 1.4);
+  G.menuK += ((G.mode === 'menu' ? 1 : 0) - G.menuK) * Math.min(1, dt * 3);
+  if(!G.travel) G.dk = 1 + (G.menuDk - 1) * G.menuK;
+  G.yOff = G.menuOff * G.menuK;
   if(G.travel){
     const tv = G.travel, x = now - tv.t0;
     const cl = (a, b) => Math.min(1, Math.max(0, (x - a) / (b - a)));
@@ -2115,6 +2144,7 @@ function renderGame(now){
   gl.uniform1f(ub.uDim, dimOf(G.level));
   gl.uniform1f(ub.uLocal, ((G.level - 1) % 10) / 9);
   gl.uniform1f(ub.uWarp, G.warpK);
+  gl.uniform1f(ub.uOff, G.yOff / 2);
   gl.uniform1f(ub.uEl, cam.el);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 
@@ -2235,24 +2265,45 @@ const $ = id => document.getElementById(id);
 const ui = $('ui'), titleEl = $('title'), subEl = $('sub'), errEl = $('err'), skipBtn = $('skipIntro');
 const hud = $('hud'), menuEl = $('menu'), winEl = $('win');
 const POSTER_T = 3.0, DURATION = 10;
-let introStart = 0, titleStage = 0, introMaster = null, lastNow = 0;
+let introStart = 0, titleStage = 0, introMaster = null, lastNow = 0, introAudio = false;
+function soundChip(){}
+function unlockAudio(){
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if(!AC) return;
+  ac = ac || new AC();
+  if(ac.state === 'running'){ soundChip(); return; }
+  const p = ac.resume();
+  const go = () => {
+    soundChip();
+    if(ac.state !== 'running') return;
+    getBus();
+    if(G.mode === 'intro' && !introAudio){
+      introAudio = true;
+      try { soundtrack(Math.max(0, (performance.now() - introStart) / 1000)); } catch(e) {}
+    }
+    if(G.mode === 'menu' || G.mode === 'game') musicPlay(G.level);
+  };
+  if(p && p.then) p.then(go, go); else go();
+}
+['pointerdown', 'touchend', 'keydown'].forEach(ev => addEventListener(ev, unlockAudio, true));
 
 function hudUpdate(){
   if(!G.rings.length) return;
   const locked = G.rings.filter(r => r.locked).length;
   const D = DIMS[dimOf(G.level)];
-  $('lvl').textContent = 'LEVEL ' + G.level + ' / ' + LEVELS + ' · ' + D.name;
-  $('prog').textContent = G.shuf ? 'SCRAMBLING · TAP TO SKIP' : locked + ' / ' + G.n + ' LOCKED · ' + fmtDepth(G.level).toUpperCase();
+  $('lvl').textContent = 'GATE ' + G.level + ' OF ' + LEVELS + ' · ' + D.name;
+  $('dep').textContent = fmtDepth(G.level).toUpperCase() + ' FROM EARTH';
+  $('prog').textContent = G.shuf ? 'THE GATE IS SHIFTING · TAP TO SKIP' : locked + ' / ' + G.n + ' RINGS ALIGNED';
   const sel = G.rings[G.sel];
   const fb = $('bFlip');
   fb.disabled = !sel || G.rings[outerOf(sel.gid)].locked || G.won;
   const phi = sel ? axisAngle(outerOf(sel.gid)) : Math.PI / 2;
   fb.innerHTML = (Math.abs(Math.sin(phi)) > 0.707 ? '⇆' : '⇅') + ' FLIP';
   $('hint').classList.toggle('hide', G.level > 2);
-  $('mLvl').textContent = 'LEVEL ' + G.level + ' · ' + G.n + ' RINGS';
+  $('mLvl').textContent = 'GATE ' + G.level + ' · ' + G.n + ' RINGS';
   $('mDim').textContent = 'DIMENSION ' + D.num + ' · ' + D.name;
   $('mDim').style.color = D.col;
-  $('mDepth').textContent = fmtDepth(G.level).toUpperCase() + ' FROM HOME · ' + D.genre;
+  $('mDepth').textContent = fmtDepth(G.level).toUpperCase() + ' FROM EARTH';
   $('mPrev').disabled = G.level <= 1;
   $('mNext').disabled = G.level >= G.maxLevel;
 }
@@ -2260,10 +2311,12 @@ function hudUpdate(){
 function playIntro(){
   [ui, menuEl, hud, winEl].forEach(el => el.classList.add('hide'));
   titleEl.className = ''; titleStage = 0;
-  subEl.textContent = 'real-time · raymarched · one file';
+  subEl.textContent = 'a journey into the deep';
   if(ac) musicStop();
-  try { soundtrack(); } catch(e) {}
   introStart = performance.now() + 30;
+  if(ac && ac.state === 'running'){ try { soundtrack(0); } catch(e) {} introAudio = true; }
+  else introAudio = false;
+  soundChip();
   G.mode = 'intro';
   skipBtn.classList.remove('hide');
 }
@@ -2278,7 +2331,7 @@ function introFrame(now){
   draw(t, fade, flash);
   if(titleStage === 0 && t > 3.55){ titleEl.className = 'on'; titleStage = 1; }
   if(titleStage === 1 && t > 4.9){ titleEl.className = 'on out'; titleStage = 2; }
-  if(titleStage === 2 && t > 6.0){ titleEl.className = ''; subEl.textContent = 'ten seconds · zero dependencies'; titleStage = 3; }
+  if(titleStage === 2 && t > 6.0){ titleEl.className = ''; subEl.textContent = 'fifty gates · five dimensions'; titleStage = 3; }
   if(titleStage === 3 && t > 8.95){ titleEl.className = 'on'; titleStage = 4; }
   if(titleStage === 4 && t > 9.45){ titleEl.className = 'on out'; titleStage = 5; }
   if(t >= DURATION) endIntro();
@@ -2287,6 +2340,7 @@ function endIntro(){
   skipBtn.classList.add('hide');
   titleEl.className = '';
   enterMenu();
+  soundChip();
 }
 function skipIntro(){
   if(introMaster && ac){
@@ -2305,6 +2359,7 @@ function enterMenu(){
   musicPlay(G.level);
   musicUi();
   hudUpdate();
+  menuLayout();
 }
 function startGame(){
   menuEl.classList.add('hide');
@@ -2315,6 +2370,7 @@ function startGame(){
   getBus();
   musicPlay(G.level);
   if(!G.cardShown || (G.level - 1) % 10 === 0) showDimCard(dimOf(G.level));
+  if(MZ.cur) showTrack(MZ.cur);
   G.cardShown = true;
   hudUpdate();
 }
@@ -2360,7 +2416,8 @@ function setMusic(on){
 }
 function musicUi(){
   $('bMusic').classList.toggle('off', !MZ.on);
-  $('mMusic').textContent = MZ.on ? '♪ Music on' : '♪ Music off';
+  $('mMusic').textContent = MZ.on ? '♪ Soundtrack on' : '♪ Soundtrack off';
+  if(!MZ.on) $('mTrack').textContent = '♪ SOUNDTRACK OFF';
 }
 function openMap(){
   menuEl.classList.add('hide');
@@ -2371,11 +2428,12 @@ function closeMap(){
   $('map').classList.add('hide');
   menuEl.classList.remove('hide');
   hudUpdate();
+  menuLayout();
 }
 function buildMap(){
   const inner = $('mapInner'), W = Math.min(440, innerWidth), HEAD = 118, STEP = 74;
   inner.innerHTML = ''; inner.style.width = W + 'px';
-  $('mapSub').textContent = 'FURTHEST GATE ' + G.maxLevel + ' / ' + LEVELS + ' · ' + fmtDepth(G.maxLevel).toUpperCase() + ' FROM HOME';
+  $('mapSub').textContent = 'DEEPEST GATE ' + G.maxLevel + ' OF ' + LEVELS + ' · ' + fmtDepth(G.maxLevel).toUpperCase() + ' FROM EARTH';
   let y = 34; const pts = [];
   DIMS.forEach((D, d) => {
     const h = document.createElement('div');
@@ -2424,12 +2482,21 @@ function buildMap(){
 }
 $('wMenu').addEventListener('click', () => { startLevel(Math.min(LEVELS, G.level + 1)); enterMenuKeep(); });
 
+function menuLayout(){
+  if(menuEl.classList.contains('hide')) return;
+  const a = menuEl.querySelector('.mTop').getBoundingClientRect(), b = menuEl.querySelector('.mBot').getBoundingClientRect();
+  const H = innerHeight, room = Math.max(120, b.top - a.bottom - 16);
+  G.menuDk = Math.min(2.2, Math.max(1, 2 * LIP_R * G.ppu / (room * 0.86)));
+  G.menuOff = Math.max(-0.3, Math.min(0.3, (H / 2 - (a.bottom + b.top) / 2) * 2 / H));
+}
 function enterMenuKeep(){
   [ui, hud, winEl].forEach(el => el.classList.add('hide'));
+  $('track').classList.remove('on');
   G.mode = 'menu';
   G.psiAnim = null;
   menuEl.classList.remove('hide');
   hudUpdate();
+  menuLayout();
 }
 
 function loop(now){
@@ -2461,20 +2528,21 @@ try {
   pRing = program(VS_RING, FS_RING);
   us = uniforms(pScene, ['uRes', 'uT', 'uImp', 'uRo', 'uTa', 'uSun', 'uNight']);
   up = uniforms(pPost, ['uTex', 'uRes', 'uSun', 'uSunVis', 'uT', 'uFade', 'uFlash', 'uVig']);
-  ub = uniforms(pBg, ['uRes', 'uT', 'uPsi', 'uWin', 'uPR', 'uEl', 'uDim', 'uLocal', 'uWarp']);
+  ub = uniforms(pBg, ['uRes', 'uT', 'uPsi', 'uWin', 'uPR', 'uEl', 'uDim', 'uLocal', 'uWarp', 'uOff']);
   ur = uniforms(pRing, ['uVP','uRot','uRad','uThick','uS1','uS2','uT','uType','uLock','uSel','uPulse','uJoinP','uFuse','uStyle','uWin','uAxis','uCam','uL']);
   resize();
   startLevel(G.level);
-  bindTri();
-  draw(POSTER_T, 1, 0);
+  try { const AC = window.AudioContext || window.webkitAudioContext; if(AC){ ac = new AC(); ac.resume(); } } catch(e) {}
+  playIntro();
 } catch(e) {
+  ui.classList.remove('hide');
   errEl.textContent = String(e.message || e);
   $('play').disabled = true;
 }
 addEventListener('resize', () => {
   if(!pScene) return;
   resize();
-  if(G.mode === 'boot'){ bindTri(); draw(POSTER_T, 1, 0); }
+  menuLayout();
 });
 requestAnimationFrame(loop);
 </script>
