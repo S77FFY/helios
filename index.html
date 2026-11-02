@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="app-repo" content="helios">
-<meta name="app-version" content="1.1.2">
+<meta name="app-version" content="1.1.4">
 <meta name="theme-color" content="#000000">
 <title>HELIOS</title>
 <style>
@@ -43,6 +43,8 @@ button{touch-action:manipulation}
 .row{display:flex;gap:4px;flex-wrap:wrap;justify-content:center}
 #track{position:fixed;left:0;right:0;top:calc(max(12px,env(safe-area-inset-top)) + 60px);text-align:center;font-size:10px;letter-spacing:.24em;color:rgba(255,255,255,.85);opacity:0;transition:opacity 1s ease;pointer-events:none;padding:0 16px}
 #track.on{opacity:.8}
+#note{position:fixed;left:0;right:0;bottom:calc(max(14px,env(safe-area-inset-bottom)) + 4px);text-align:center;font-size:10px;letter-spacing:.2em;color:rgba(255,255,255,.85);opacity:0;transition:opacity 1s ease;pointer-events:none;padding:0 16px}
+#note.on{opacity:.8}
 #dimCard{position:fixed;left:0;right:0;top:15%;text-align:center;pointer-events:none;opacity:0;transform:translateY(12px);transition:opacity .9s ease,transform 1.4s ease;padding:0 12px}
 #dimCard.on{opacity:1;transform:none}
 #dimCard .num{font-size:11px;letter-spacing:.6em;opacity:.75;padding-left:.6em}
@@ -101,7 +103,7 @@ button{touch-action:manipulation}
     <div class="sub" id="mDepth"></div>
     <div class="sub" id="mTrack"></div>
     <button class="big" id="mStart">▶&nbsp; ENGAGE</button>
-    <div class="row"><button class="link" id="mMap">◎ Star chart</button><button class="link" id="mMusic">♪ Soundtrack on</button><button class="link" id="mIntro">Replay launch</button></div>
+    <div class="row"><button class="link" id="mMap">◎ Star chart</button><button class="link" id="mMusic">♪ Soundtrack on</button><button class="link" id="mGfx">✦ Graphics: High</button><button class="link" id="mIntro">Replay launch</button></div>
   </div>
 </div>
 
@@ -112,6 +114,7 @@ button{touch-action:manipulation}
 
 <div id="dimCard"><div class="num"></div><div class="nm"></div><div class="tg"></div></div>
 <div id="track"></div>
+<div id="note"></div>
 
 <div id="win" class="overlay hide">
   <div class="tag" id="wTag">LEVEL 1 COMPLETE</div>
@@ -129,10 +132,10 @@ button{touch-action:manipulation}
   <div id="err"></div>
 </div>
 <button class="link hide" id="skipIntro">Skip ›</button>
-<div id="ver">v1.1.2</div>
+<div id="ver">v1.1.4</div>
 
 <script>
-const VERSION = '1.1.2';
+const VERSION = '1.1.4';
 
 const VS = `
 attribute vec2 p;
@@ -373,10 +376,17 @@ uniform float uT;
 uniform float uFade;
 uniform float uFlash;
 uniform float uVig;
+uniform float uLow;
 varying vec2 vUv;
 vec3 br(vec2 uv){ vec3 c=texture2D(uTex,uv).rgb; return max(c-0.7,0.0)*3.3; }
 void main(){
   vec2 uv=vUv; vec2 d=uv-0.5; float asp=uRes.x/uRes.y;
+  if(uLow>0.5){
+    vec3 c0=texture2D(uTex,uv).rgb;
+    c0*=mix(1.0,0.35+0.55*uVig,smoothstep(0.35,1.0,length(d)*1.4));
+    gl_FragColor=vec4(c0*uFade+vec3(uFlash),1.0);
+    return;
+  }
   float ca=0.0035+uFlash*0.02;
   vec3 col=vec3(texture2D(uTex,uv-d*ca).r,texture2D(uTex,uv).g,texture2D(uTex,uv+d*ca).b);
 
@@ -435,6 +445,7 @@ uniform float uDim;
 uniform float uLocal;
 uniform float uWarp;
 uniform float uOff;
+uniform float uLow;
 ` + NOISE + `
 float HX;
 float starsL(vec2 q, float dens, float th, float seed){
@@ -501,7 +512,7 @@ vec4 rocks(vec2 uv, float s, float par, float seed, float th, vec3 rimc){
   float m=1.0-smoothstep(rr-0.015,rr,l);
   float rim=smoothstep(0.55,1.0,l/rr)*max(dot(dir,normalize(vec2(-0.6,0.8))),0.0);
   vec3 body=vec3(0.035,0.03,0.05)*(0.5+0.9*fbm(d*10.0+id*2.0));
-  float glint=step(0.93,hash(floor(d*30.0)+id))*smoothstep(0.4,0.9,l/rr);
+  vec2 gq=d*30.0; float glint=step(0.93,hash(floor(gq)+id))*(1.0-smoothstep(0.1,0.32,length(fract(gq)-0.5)))*smoothstep(0.4,0.9,l/rr);
   vec3 c2=body+rimc*rim*1.3+vec3(0.7,0.85,1.0)*glint*(0.5+0.5*sin(uT*3.0+id.x*7.0));
   return vec4(c2,m);
 }
@@ -572,7 +583,16 @@ void main(){
   HX=0.5*uRes.x/uRes.y;
   vec2 q=uv+vec2(uPsi*0.25,0.0);
   vec3 col;
-  if(uDim<0.5) col=envSol(uv,q);
+  if(uLow>0.5){
+    vec3 tint=uDim<0.5?vec3(0.25,0.08,0.3):uDim<1.5?vec3(0.03,0.3,0.3):uDim<2.5?vec3(0.2,0.08,0.35):uDim<3.5?vec3(0.45,0.12,0.03):vec3(0.12,0.0,0.02);
+    col=vec3(0.004,0.005,0.014)+tint*0.3*(0.55+0.45*sin(q.x*2.3+1.0)*cos(q.y*1.7));
+    col+=starfield(q,uDim>3.5?0.35:1.0);
+    if(uDim>2.5&&uDim<3.5){
+      float lr=length(uv-vec2(0.0,uOff))/(uPR*1.34);
+      col+=vec3(1.0,0.5,0.15)*smoothstep(1.0,1.06,lr)*(1.0-smoothstep(1.1,1.6,lr))*0.9+vec3(1.0,0.85,0.6)*exp(-abs(lr-1.015)*70.0);
+    }
+  }
+  else if(uDim<0.5) col=envSol(uv,q);
   else if(uDim<1.5) col=envVeil(uv,q);
   else if(uDim<2.5) col=envShards(uv,q);
   else if(uDim<3.5) col=envHorizon(uv-vec2(0.0,uOff),q);
@@ -587,7 +607,7 @@ void main(){
     float a=atan(pu.y,pu.x);
     float sw=a+2.6/(pr+0.18)-uT*0.7;
     vec2 cs=vec2(cos(sw),sin(sw));
-    float v=fbm(cs*(1.2+pr*2.5)+vec2(uT*0.12,pr*3.0-uT*0.9));
+    float v=uLow>0.5 ? 0.5+0.3*sin(sw*2.0+pr*7.0-uT*1.5) : fbm(cs*(1.2+pr*2.5)+vec2(uT*0.12,pr*3.0-uT*0.9));
     float arms=0.5+0.5*sin(sw*3.0+v*4.0);
     vec3 pc=mix(vec3(0.35,0.05,0.75),vec3(1.0,0.45,0.1),smoothstep(0.35,0.75,v));
     pc=pc*(0.35+1.4*v*arms)+vec3(1.0,0.92,0.75)*exp(-pr*pr*9.0)*2.2;
@@ -635,7 +655,7 @@ void main(){
 }
 `;
 
-const FS_RING = `
+const RING_PRE = `
 precision highp float;
 uniform vec4 uS1;
 uniform vec4 uS2;
@@ -648,6 +668,7 @@ uniform float uPulse;
 uniform float uJoinP;
 uniform vec2 uFuse;
 uniform vec2 uStyle;
+uniform float uDimArt;
 uniform float uWin;
 uniform vec2 uAxis;
 uniform vec3 uCam;
@@ -665,7 +686,8 @@ float sdTri(vec2 p, float r){
   return -length(p)*sign(p.y);
 }
 
-/* ================= ART: shared helpers ================= */
+`;
+const ART_HELP = `/* ================= ART: shared helpers ================= */
 vec2 hash2(vec2 p){ p=vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3))); return fract(sin(p)*43758.5453); }
 vec3 pal(float t){ return 0.5+0.5*cos(6.2832*(t+vec3(0.0,0.33,0.67))); }
 float starL(vec2 p, float dens, float seed, float th){
@@ -675,13 +697,25 @@ float starL(vec2 p, float dens, float seed, float th){
   float d=length(f-(h-0.5)*0.7);
   return on*(1.0-smoothstep(0.0,0.09+0.08*h.y,d))*(0.4+h.x);
 }
+vec3 milkyWay(vec2 p){
+  float a=uS2.y*3.1416+0.4;
+  vec2 dir=vec2(cos(a),sin(a)), nrm=vec2(-dir.y,dir.x);
+  float off=(uS1.x-0.5)*0.45+0.2*sign(uS1.x-0.5+0.001);
+  float d=dot(p,nrm)-off, along=dot(p,dir);
+  float w=0.17+0.05*sin(along*3.0+uS1.y*6.0);
+  float prof=exp(-d*d/(w*w));
+  float dust=smoothstep(0.4,0.75,fbm(vec2(along*3.0,d*9.0)+uS1.zw*20.0));
+  vec3 c=mix(vec3(0.5,0.68,1.0),vec3(1.0,0.75,0.5),smoothstep(-1.0,1.0,along));
+  float glow=prof*(0.4+0.5*fbm(vec2(along*4.0,d*6.0)+uS2.zw*9.0));
+  return c*glow*(1.0-0.7*dust*prof)+vec3(1.0)*starL(p,110.0,uS2.x*37.0,0.6)*prof*(1.0-0.6*dust)*1.2;
+}
 vec3 starfield(vec2 p, float k){
   float s=starL(p,70.0,uS1.z*61.0,0.93)*0.8+starL(p,30.0,uS1.w*47.0+9.0,0.95)*1.3;
   vec2 g=p*12.0; vec2 id=floor(g); vec2 h=hash2(id+uS2.w*13.0);
   float big=step(0.965,hash(id+uS2.z*7.0));
   vec2 f=fract(g)-0.5-(h-0.5)*0.5;
   float bs=big*(exp(-length(f)*28.0)*1.5+(exp(-abs(f.x)*90.0)*exp(-abs(f.y)*9.0)+exp(-abs(f.y)*90.0)*exp(-abs(f.x)*9.0))*0.5);
-  return vec3(1.0,0.96,0.9)*(s+bs)*k;
+  return vec3(1.0,0.96,0.9)*(s+bs)*k+milkyWay(p)*min(k,1.0);
 }
 vec3 nebula(vec2 p, vec3 c1, vec3 c2){
   vec2 q=p*1.5+uS1.xy*10.0;
@@ -727,8 +761,48 @@ vec3 rockMoon(vec4 m, vec3 L, float seed, vec3 tint){
 vec2 seedPos(float i, float k){ return vec2(hash(vec2(i*1.7,uS1.z*9.0+k)),hash(vec2(i*2.9+4.0,uS1.w*9.0+k)))*1.5-0.75; }
 vec2 awayFrom(vec2 m, vec2 c, float minD){ vec2 d=m-c; float l=length(d); return l<minD ? c+(d+vec2(0.001,0.0))/max(l,0.001)*minD : m; }
 
-/* ================= SPACE SIDE ================= */
-vec3 artRinged(vec2 p){
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+float hl(vec2 id, float s){ return step(0.5,hash(id*1.13+s)); }
+
+
+
+
+float ecg(float x){ float e=fract(x); return exp(-pow((e-0.5)*40.0,2.0))*0.32-exp(-pow((e-0.54)*50.0,2.0))*0.12+exp(-pow((e-0.75)*12.0,2.0))*0.06; }
+float sqw(float x){ return clamp(sin(x)*6.0,-1.0,1.0); }
+
+
+
+
+
+
+
+
+
+
+
+
+
+float segD(vec2 p, vec2 a, vec2 b){ vec2 pa=p-a, ba=b-a; float h=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0); return length(pa-ba*h); }
+`;
+const ART_FN = {
+  artRinged: `vec3 artRinged(vec2 p){
   vec3 hue=pal(uS2.x);
   vec3 col=nebula(p,hue*0.5,vec3(0.25,0.08,0.35))+starfield(p,1.0);
   vec2 c=vec2(-0.25+0.5*uS1.x,-0.1+0.25*uS1.y);
@@ -766,8 +840,8 @@ vec3 artRinged(vec2 p){
   }
   return col;
 }
-
-vec3 artEarthrise(vec2 p){
+`,
+  artEarthrise: `vec3 artEarthrise(vec2 p){
   vec3 col=nebula(p,vec3(0.05,0.1,0.25),vec3(0.18,0.05,0.22))*0.7+starfield(p,0.9);
   vec3 L=normalize(vec3(-0.85,0.25,0.5));
   vec2 c=vec2(0.05+0.35*uS1.x,0.2+0.2*uS1.y);
@@ -800,8 +874,8 @@ vec3 artEarthrise(vec2 p){
   }
   return col;
 }
-
-vec3 artCrescent(vec2 p){
+`,
+  artCrescent: `vec3 artCrescent(vec2 p){
   vec3 col=nebula(p,vec3(0.1,0.35,0.6),vec3(0.55,0.15,0.5))+starfield(p,1.0);
   vec2 c=vec2(-0.2+0.3*uS1.x,-0.25+0.2*uS1.y);
   float R=0.55+0.08*uS2.y;
@@ -837,8 +911,8 @@ vec3 artCrescent(vec2 p){
   }
   return col;
 }
-
-vec3 artLava(vec2 p){
+`,
+  artLava: `vec3 artLava(vec2 p){
   vec3 col=nebula(p,vec3(0.6,0.15,0.05),vec3(0.35,0.05,0.2))+starfield(p,0.8);
   vec2 c=vec2(-0.15+0.3*uS1.x,-0.15+0.3*uS1.y);
   float R=0.42+0.08*uS2.y;
@@ -874,8 +948,8 @@ vec3 artLava(vec2 p){
   if(m.w>0.0) col=mix(col,rockMoon(m,L,4.0,vec3(0.6,0.45,0.4))+vec3(0.6,0.15,0.0)*pow(1.0-m.z,2.0),m.w);
   return col;
 }
-
-vec3 artSystem(vec2 p){
+`,
+  artSystem: `vec3 artSystem(vec2 p){
   vec3 col=nebula(p,vec3(0.1,0.12,0.3),vec3(0.3,0.1,0.25))*0.7+starfield(p,0.9);
   vec2 s0=vec2(-0.35+0.25*uS1.x,-0.3+0.25*uS1.y);
   float tilt=uS2.y*3.14;
@@ -912,8 +986,8 @@ vec3 artSystem(vec2 p){
   }
   return col;
 }
-
-vec3 artEclipse(vec2 p){
+`,
+  artEclipse: `vec3 artEclipse(vec2 p){
   vec3 col=nebula(p,vec3(0.35,0.1,0.5),vec3(0.05,0.2,0.4))+starfield(p,1.0);
   vec2 c=vec2(-0.1+0.3*uS1.x,0.05+0.25*uS1.y);
   float R=0.32+0.06*uS2.y;
@@ -935,8 +1009,8 @@ vec3 artEclipse(vec2 p){
   if(m2.w>0.0){ vec3 hue=pal(uS2.x); col=mix(col,hue*(0.5+0.5*fbm(vec2(m2.x*2.0,m2.y*9.0)))*(smoothstep(-0.1,0.5,dot(m2.xyz,L))+0.03),m2.w); }
   return col;
 }
-
-vec3 artGalaxy(vec2 p){
+`,
+  artGalaxy: `vec3 artGalaxy(vec2 p){
   vec3 col=nebula(p,vec3(0.08,0.06,0.2),vec3(0.2,0.05,0.15))*0.6+starfield(p,1.0);
   vec2 g=vec2(-0.2+0.4*uS1.x,0.15-0.35*uS1.y);
   vec2 q=rot(uS2.y*3.14)*(p-g); q.y/=0.5;
@@ -966,8 +1040,8 @@ vec3 artGalaxy(vec2 p){
   if(m.w>0.0) col=mix(col,rockMoon(m,L,3.0,vec3(0.75,0.73,0.7)),m.w);
   return col;
 }
-
-vec3 artMars(vec2 p){
+`,
+  artMars: `vec3 artMars(vec2 p){
   vec3 col=nebula(p,vec3(0.25,0.08,0.05),vec3(0.05,0.08,0.2))*0.7+starfield(p,1.0);
   vec2 c=vec2(-0.2+0.4*uS1.x,-0.15+0.3*uS1.y);
   float R=0.46+0.06*uS2.y;
@@ -1005,10 +1079,8 @@ vec3 artMars(vec2 p){
   }
   return col;
 }
-
-/* ================= NEON SIDE ================= */
-float hl(vec2 id, float s){ return step(0.5,hash(id*1.13+s)); }
-vec3 artCircuit(vec2 p){
+`,
+  artCircuit: `vec3 artCircuit(vec2 p){
   vec3 col=vec3(0.008,0.015,0.03)+vec3(0.0,0.03,0.05)*fbm(p*3.0+uS2.zw*7.0);
   vec2 g=p*8.0+uS1.xy*20.0; vec2 id=floor(g); vec2 f=fract(g);
   float sx=uS2.x*31.0, sy=uS2.y*29.0;
@@ -1041,8 +1113,8 @@ vec3 artCircuit(vec2 p){
   }
   return col;
 }
-
-vec3 artSynth(vec2 p){
+`,
+  artSynth: `vec3 artSynth(vec2 p){
   float h=-0.1+0.15*uS1.x;
   vec3 c1=vec3(1.0,0.2,0.75), c2=vec3(0.1,0.85,1.0);
   vec3 col;
@@ -1077,10 +1149,8 @@ vec3 artSynth(vec2 p){
   col+=c2*(exp(-abs(tri)*250.0)*1.3+exp(-abs(tri)*25.0)*0.12);
   return col;
 }
-
-float ecg(float x){ float e=fract(x); return exp(-pow((e-0.5)*40.0,2.0))*0.32-exp(-pow((e-0.54)*50.0,2.0))*0.12+exp(-pow((e-0.75)*12.0,2.0))*0.06; }
-float sqw(float x){ return clamp(sin(x)*6.0,-1.0,1.0); }
-vec3 artScope(vec2 p){
+`,
+  artScope: `vec3 artScope(vec2 p){
   vec3 col=vec3(0.0,0.02,0.015);
   vec2 gg=abs(fract(p*5.0+0.5)-0.5)/5.0;
   col+=vec3(0.0,0.35,0.25)*(1.0-smoothstep(0.0,0.003,min(gg.x,gg.y)))*0.35;
@@ -1103,8 +1173,8 @@ vec3 artScope(vec2 p){
   col+=vec3(0.3,1.0,0.6)*exp(-abs(length(eq*vec2(1.0,2.6))-0.15)*250.0)*1.2;
   return col;
 }
-
-vec3 artHex(vec2 p){
+`,
+  artHex: `vec3 artHex(vec2 p){
   vec3 col=vec3(0.01,0.0,0.03);
   vec2 q=p*6.0+uS1.xy*10.0;
   vec2 s=vec2(1.0,1.7320508);
@@ -1124,8 +1194,8 @@ vec3 artHex(vec2 p){
   col+=c2*(exp(-abs(length(p-rc)-0.22)*180.0)*1.2+exp(-abs(length(p-rc)-0.26)*400.0)*0.6);
   return col;
 }
-
-vec3 artEq(vec2 p){
+`,
+  artEq: `vec3 artEq(vec2 p){
   vec3 col=vec3(0.01,0.005,0.025);
   float base=-0.15+0.2*(uS1.x-0.5);
   float gx=(p.x+1.0)*11.0;
@@ -1148,8 +1218,8 @@ vec3 artEq(vec2 p){
   col+=c2*(1.0-smoothstep(0.025,0.03,sd))*0.8;
   return col;
 }
-
-vec3 artSigil(vec2 p){
+`,
+  artSigil: `vec3 artSigil(vec2 p){
   float r=length(p), a=atan(p.y,p.x);
   vec3 col=mix(vec3(0.0,0.03,0.05),vec3(0.01,0.12,0.15),fbm(p*3.0+uS2.zw*7.0));
   vec3 cA=pal(uS2.z+0.5), cB=pal(uS2.z);
@@ -1186,8 +1256,8 @@ vec3 artSigil(vec2 p){
   col+=cB*exp(-abs(lid)*80.0)*step(abs(ep.x),ew)*0.6;
   return col;
 }
-
-vec3 artRadar(vec2 p){
+`,
+  artRadar: `vec3 artRadar(vec2 p){
   vec3 col=vec3(0.0,0.015,0.01);
   vec2 c=vec2(-0.15+0.3*uS1.x,-0.1+0.25*uS1.y);
   vec2 d=p-c; float r=length(d); float a=atan(d.y,d.x);
@@ -1218,8 +1288,8 @@ vec3 artRadar(vec2 p){
   }
   return col;
 }
-
-vec3 artTrails(vec2 p){
+`,
+  artTrails: `vec3 artTrails(vec2 p){
   vec3 col=vec3(0.005,0.01,0.025);
   vec2 g=p*5.5+uS1.xy*10.0; vec2 id=floor(g); vec2 f=fract(g);
   vec2 gl=abs(f-0.5);
@@ -1233,31 +1303,763 @@ vec3 artTrails(vec2 p){
   col+=vec3(1.0)*step(0.9,hash(id*2.3+uS1.z))*exp(-length(f-vec2(0.5,0.0))*30.0)*2.0;
   return col;
 }
-
-vec3 imgA(vec2 p){
-  float s=uStyle.x;
-  if(s<0.5) return artRinged(p);
-  if(s<1.5) return artEarthrise(p);
-  if(s<2.5) return artCrescent(p);
-  if(s<3.5) return artLava(p);
-  if(s<4.5) return artSystem(p);
-  if(s<5.5) return artEclipse(p);
-  if(s<6.5) return artGalaxy(p);
-  return artMars(p);
+`,
+  artComet: `vec3 artComet(vec2 p){
+  vec3 col=nebula(p,vec3(0.1,0.15,0.35),vec3(0.25,0.08,0.3))+starfield(p,1.0);
+  float a=uS2.y*6.2832; vec2 dir=vec2(cos(a),sin(a));
+  vec2 h=seedPos(1.0,4.0)*0.6;
+  vec2 q=p-h; float al=dot(q,-dir); float pe=dot(q,vec2(-dir.y,dir.x));
+  float curve=pe-0.18*al*al*(uS1.z>0.5?1.0:-1.0);
+  float fwd=smoothstep(-0.02,0.04,al);
+  float dust=fwd*exp(-curve*curve/(0.002+al*al*0.06))*exp(-al*0.7);
+  float ion=fwd*exp(-pe*pe/(0.0004+al*al*0.004))*exp(-al*0.45);
+  col+=vec3(1.0,0.85,0.6)*dust*(0.7+0.6*fbm(vec2(al*6.0,pe*20.0)+uS1.xy*9.0))*1.3;
+  col+=vec3(0.4,0.7,1.0)*ion*(0.8+0.5*noise(vec2(al*14.0,pe*80.0)))*1.2;
+  float d=length(q);
+  col+=vec3(1.0,0.95,0.85)*(exp(-d*60.0)*2.5+exp(-d*12.0)*0.35);
+  vec4 m=sphere(p,vec2(0.5-1.0*uS1.w,-1.6),1.0);
+  if(m.w>0.0){
+    float li=smoothstep(-0.1,0.6,dot(m.xyz,normalize(vec3(dir,0.5))));
+    vec3 pc=mix(vec3(0.15,0.3,0.6),vec3(0.75,0.62,0.48),fbm(m.xy*4.0+uS2.zw*7.0));
+    col=mix(col,pc*(li*1.1+0.03)+vec3(0.4,0.6,1.0)*pow(1.0-m.z,3.0)*li,m.w);
+  }
+  return col;
 }
+`,
+  artPillars: `vec3 artPillars(vec2 p){
+  vec2 q=p*1.2+uS1.xy*7.0;
+  vec3 gas=mix(vec3(0.08,0.35,0.45),vec3(0.95,0.55,0.25),smoothstep(-0.6,0.9,p.y+0.4*fbm(q)));
+  vec3 col=vec3(0.01,0.015,0.03)+gas*pow(fbm(q*1.3+fbm(q*2.0)),1.6)*1.5+starfield(p,0.8);
+  float pil=0.0; float rim=0.0;
+  for(int i=0;i<3;i++){
+    float fi=float(i);
+    float x0=-0.55+fi*0.55+(hash(vec2(fi,uS2.x*9.0))-0.5)*0.25;
+    float top=0.0+0.65*hash(vec2(fi*3.0,uS2.y*7.0));
+    float w=(0.1+0.07*hash(vec2(fi,uS1.z*5.0)))*(1.0+0.7*smoothstep(top,-1.1,p.y));
+    float wob=0.06*sin(p.y*7.0+fi*2.0)+0.08*(fbm(vec2(p.y*4.0,fi*3.0))-0.5);
+    float xx=p.x-x0-wob;
+    float sd=max(abs(xx)-w,p.y-top);
+    sd=min(sd,length(vec2(xx,(p.y-top)*1.5))-w*0.95);
+    sd+=0.035*(fbm(p*14.0+fi)-0.5);
+    pil=max(pil,1.0-smoothstep(-0.008,0.008,sd));
+    rim+=exp(-abs(sd)*70.0)*step(0.0,sd);
+  }
+  col+=vec3(1.0,0.8,0.55)*rim*0.45;
+  col=mix(col,vec3(0.03,0.02,0.02)+vec3(0.16,0.08,0.04)*fbm(p*9.0),pil);
+  col+=vec3(1.0,0.9,0.8)*starL(p,14.0,uS1.w*20.0,0.88)*2.0;
+  return col;
+}
+`,
+  artRingNeb: `vec3 artRingNeb(vec2 p){
+  vec3 col=nebula(p,vec3(0.05,0.1,0.25),vec3(0.2,0.05,0.2))*0.6+starfield(p,1.0);
+  vec2 c=(uS1.xy-0.5)*0.5;
+  vec2 q=rot(uS2.y*3.14)*(p-c); q.x*=0.75;
+  float r=length(q), a=atan(q.y,q.x);
+  float n=fbm(vec2(a*3.0,r*5.0)+uS2.zw*9.0);
+  float shell=exp(-pow((r-0.4-0.06*n)*7.0,2.0));
+  float halo=exp(-pow((r-0.68-0.1*n)*4.0,2.0))*0.5;
+  float inner=exp(-r*3.0)*0.6;
+  vec3 cIn=pal(uS2.x+0.45), cOut=pal(uS2.x);
+  col+=cIn*inner*(0.6+0.6*n)+mix(cIn,cOut,smoothstep(0.3,0.5,r))*shell*(0.8+0.8*n)+cOut*halo*(0.6+n);
+  vec2 lq=vec2(q.x*0.6,q.y*1.5);
+  col+=cOut*0.45*exp(-abs(length(lq)-0.95)*7.0)*fbm(lq*4.0+3.0)*smoothstep(0.2,0.7,abs(q.y));
+  col+=cOut*0.5*pow(noise(vec2(a*20.0,1.0)),6.0)*smoothstep(0.35,0.5,r)*(1.0-smoothstep(0.6,1.0,r));
+  col+=vec3(1.0)*exp(-length(p-c)*70.0)*2.0;
+  return col;
+}
+`,
+  artBinary: `vec3 artBinary(vec2 p){
+  vec3 col=nebula(p,vec3(0.15,0.05,0.3),vec3(0.05,0.15,0.3))+starfield(p,1.0);
+  float a=uS2.y*6.2832; vec2 o=(uS1.xy-0.5)*0.2;
+  vec2 c1=vec2(cos(a),sin(a))*0.42+o, c2=-vec2(cos(a),sin(a))*0.36+o;
+  float r1=0.27+0.05*uS1.z;
+  vec2 ax=normalize(c2-c1); vec2 pe=vec2(-ax.y,ax.x); float L=length(c2-c1);
+  float t=clamp(dot(p-c1,ax)/L,0.0,1.0);
+  vec2 sp=c1+ax*t*L+pe*sin(t*3.1416)*0.24;
+  float ds=length(p-sp);
+  col+=vec3(1.0,0.55,0.25)*exp(-ds*ds/(0.0012+0.004*t))*(0.6+0.6*fbm(vec2(t*8.0,ds*30.0)))*1.2;
+  vec2 q=rot(a+0.6)*(p-c2); vec2 qd=vec2(q.x,q.y*2.6); float rq=length(qd);
+  float disk=smoothstep(0.03,0.06,rq)*(1.0-smoothstep(0.12,0.3,rq));
+  col+=mix(vec3(0.6,0.8,1.0),vec3(1.0,0.6,0.3),smoothstep(0.05,0.3,rq))*disk*(0.6+0.8*noise(vec2(atan(qd.y,qd.x)*4.0,rq*30.0)));
+  col+=vec3(0.5,0.7,1.0)*exp(-abs(q.x)*120.0)*exp(-abs(q.y)*2.0)*0.9;
+  col+=vec3(0.7,0.85,1.0)*(exp(-length(p-c2)*55.0)*2.5+exp(-length(p-c2)*8.0)*0.3);
+  vec2 d1=(p-c1)/r1; float l1=length(d1);
+  float m=1.0-smoothstep(0.97,1.0,l1);
+  float z=sqrt(max(1.0-l1*l1,0.0));
+  vec3 sc=mix(vec3(1.0,0.4,0.1),vec3(1.0,0.85,0.5),z)*(0.65+0.5*fbm(d1*6.0+uS2.zw*5.0));
+  col+=vec3(1.0,0.5,0.2)*exp(-max(l1-1.0,0.0)*r1*9.0)*0.5*(1.0-m);
+  col=mix(col,sc*1.3,m);
+  return col;
+}
+`,
+  artShattered: `vec3 artShattered(vec2 p){
+  vec3 col=nebula(p,vec3(0.3,0.1,0.4),vec3(0.1,0.1,0.3))+starfield(p,1.0);
+  vec2 c=(uS1.xy-0.5)*0.4; float R=0.5;
+  vec3 L=normalize(vec3(-0.6,0.5,0.6));
+  for(int i=0;i<6;i++){
+    float fi=float(i);
+    vec2 dc=awayFrom(seedPos(fi,9.0)*1.1,c,R+0.18);
+    vec4 dm=sphere(p,dc,0.025+0.035*hash(vec2(fi,4.0)));
+    if(dm.w>0.0) col=mix(col,rockMoon(dm,L,fi,vec3(0.6,0.55,0.5))+vec3(1.0,0.4,0.1)*pow(1.0-dm.z,3.0)*0.4,dm.w);
+  }
+  vec2 q=p-c; float r=length(q), a=atan(q.y,q.x);
+  col+=vec3(1.0,0.45,0.1)*(exp(-r*5.0)*0.7+exp(-r*18.0)*1.6);
+  float u=fract(a/6.2832+0.5+uS2.x);
+  float sec=floor(u*7.0);
+  float ac=((sec+0.5)/7.0-uS2.x-0.5)*6.2832;
+  float push=0.04+0.15*hash(vec2(sec,uS2.y*13.0));
+  vec2 qq=q-vec2(cos(ac),sin(ac))*push;
+  float rr=length(qq);
+  float am=fract(u*7.0);
+  float gapM=smoothstep(0.0,0.06,am)*smoothstep(1.0,0.94,am);
+  float m=(1.0-smoothstep(R-0.008,R,rr))*smoothstep(R*0.33,R*0.38,rr)*gapM;
+  if(m>0.0){
+    vec3 n=vec3(qq/R,sqrt(max(1.0-dot(qq,qq)/(R*R),0.0)));
+    float li=smoothstep(-0.1,0.6,dot(n,L));
+    vec3 pc=mix(vec3(0.45,0.38,0.32),vec3(0.25,0.3,0.36),fbm(qq*6.0+sec))*(0.8+0.4*craters(qq*8.0+sec));
+    float inner=1.0-smoothstep(R*0.38,R*0.55,rr);
+    col=mix(col,pc*(li*1.1+0.03)+vec3(1.0,0.4,0.1)*inner*1.2,m);
+  }
+  return col;
+}
+`,
+  artAsteroid: `vec3 artAsteroid(vec2 p){
+  vec3 col=nebula(p,vec3(0.2,0.12,0.35),vec3(0.05,0.12,0.25))*0.8+starfield(p,1.0);
+  vec3 L=normalize(vec3(cos(uS2.x*6.28),sin(uS2.x*6.28),0.5));
+  vec2 c=vec2(-0.25+0.5*uS1.x,-0.2+0.4*uS1.y);
+  for(int i=0;i<7;i++){
+    float fi=float(i); vec2 dc=awayFrom(seedPos(fi,13.0)*1.25,c,0.72);
+    vec4 dm=sphere(p,dc,0.02+0.05*hash(vec2(fi,7.0)));
+    if(dm.w>0.0) col=mix(col,rockMoon(dm,L,fi,vec3(0.55,0.5,0.46)),dm.w);
+  }
+  vec2 q=rot(uS2.y*6.28)*(p-c); q.x*=0.72;
+  float l=length(q); vec2 dir=q/max(l,1e-4);
+  float R=0.6*(1.0+0.24*(noise(dir*1.8+uS2.zw*9.0)-0.5)+0.08*(noise(dir*5.0)-0.5));
+  float m=1.0-smoothstep(R-0.012,R,l);
+  if(m>0.0){
+    vec3 n=normalize(vec3(q/R,sqrt(max(1.0-l*l/(R*R),0.0))+0.05));
+    float cr=craters(q*5.0+uS1.zw*9.0)+0.6*craters(q*11.0)+0.3*craters(q*24.0);
+    float li=smoothstep(-0.15,0.7,dot(n,L)+cr*0.25);
+    vec3 pc=mix(vec3(0.42,0.37,0.33),vec3(0.62,0.55,0.48),fbm(q*4.0))*(0.75+0.3*cr);
+    col=mix(col,pc*(li*1.15+0.02),m);
+  }
+  return col;
+}
+`,
+  artStation: `vec3 artStation(vec2 p){
+  vec3 col=nebula(p,vec3(0.12,0.1,0.3),vec3(0.3,0.1,0.15))*0.8+starfield(p,1.0);
+  vec3 L=normalize(vec3(-0.7,0.6,0.4));
+  vec4 pm=sphere(p,vec2(0.6-1.2*uS1.z,-0.8),0.6);
+  if(pm.w>0.0){
+    vec3 pc=mix(vec3(0.5,0.3,0.6),vec3(0.2,0.45,0.6),fbm(pm.xy*3.0+uS2.zw*5.0));
+    col=mix(col,pc*(smoothstep(-0.1,0.6,dot(pm.xyz,L))*1.1+0.02)+vec3(0.4,0.6,1.0)*pow(1.0-pm.z,3.0)*0.5,pm.w);
+  }
+  vec2 c=(uS1.xy-0.5)*0.3;
+  float tl=uS2.y*1.2-0.6;
+  vec2 q=rot(tl)*(p-c); vec2 e=vec2(q.x,q.y/0.42);
+  float rr=length(e), a=atan(e.y,e.x);
+  float gapA=uS2.x*6.2832-3.1416;
+  float ga=abs(mod(a-gapA+3.1416,6.2832)-3.1416);
+  float broken=smoothstep(0.25,0.32,ga);
+  vec3 metal=vec3(0.58,0.6,0.66);
+  float shade=0.55+0.45*dot(normalize(e+1e-4),normalize(vec2(-0.6,0.6)));
+  float spoke=0.0;
+  for(int i=0;i<4;i++){
+    float sa=float(i)*1.5708+uS2.z*6.28; vec2 sd=vec2(cos(sa),sin(sa));
+    float dd=abs(dot(e,vec2(-sd.y,sd.x)));
+    spoke=max(spoke,(1.0-smoothstep(0.012,0.02,dd))*step(0.0,dot(e,sd))*step(rr,0.64)*step(0.08,rr));
+  }
+  col=mix(col,metal*shade*0.7,spoke*0.9);
+  float hull=(1.0-smoothstep(0.05,0.062,abs(rr-0.68)))*broken;
+  float panel=0.7+0.3*step(0.12,fract(a/6.2832*48.0));
+  col=mix(col,metal*(0.35+0.75*shade)*panel,hull);
+  float win=step(0.55,hash(vec2(floor(a/6.2832*96.0),3.0)))*(1.0-smoothstep(0.008,0.015,abs(rr-0.68)))*broken;
+  col+=vec3(1.0,0.85,0.5)*win*1.4;
+  vec2 gd=vec2(cos(gapA),sin(gapA)*0.42);
+  for(int i=0;i<7;i++){
+    float fi=float(i);
+    vec2 lp=gd*(0.78+fi*0.1)+(vec2(hash(vec2(fi,2.0)),hash(vec2(fi,5.0)))-0.5)*0.14;
+    vec2 dp=c+rot(-tl)*lp;
+    col=mix(col,metal*0.55,1.0-smoothstep(0.008,0.014+0.01*hash(vec2(fi,9.0)),length(p-dp)));
+  }
+  col=mix(col,vec3(0.45,0.47,0.52),1.0-smoothstep(0.07,0.08,length(e)));
+  col+=vec3(0.6,0.8,1.0)*exp(-length(e)*25.0)*1.0;
+  return col;
+}
+`,
+  artCrystal: `vec3 artCrystal(vec2 p){
+  vec3 col=nebula(p,vec3(0.25,0.1,0.45),vec3(0.05,0.2,0.4))+starfield(p,1.0);
+  vec2 c=(uS1.xy-0.5)*0.45; float R=0.5;
+  vec2 q=p-c; float l=length(q);
+  vec3 L=normalize(vec3(cos(uS2.x*6.28),sin(uS2.x*6.28),0.6));
+  col+=pal(uS2.z)*exp(-max(l-R,0.0)*6.0)*0.35*step(R,l);
+  for(int i=0;i<6;i++){
+    float fi=float(i); vec2 sc=awayFrom(seedPos(fi,17.0)*1.15,c,R+0.12);
+    vec2 sq=rot(fi*1.3+uS1.z*6.0)*(p-sc);
+    float sd=abs(sq.x)*2.4+abs(sq.y)-0.07-0.04*hash(vec2(fi,3.0));
+    vec3 cc=pal(uS2.z+fi*0.1);
+    col+=cc*exp(-max(sd,0.0)*60.0)*0.35;
+    col=mix(col,cc*0.7+0.25+vec3(0.4)*step(0.0,sq.x),1.0-smoothstep(0.0,0.006,sd));
+  }
+  if(l<R){
+    vec2 g=q*6.0+uS2.zw*20.0; vec2 id=floor(g), f=fract(g); float d1=9.0; vec2 bid=vec2(0.0);
+    for(int j=-1;j<=1;j++) for(int i=-1;i<=1;i++){
+      vec2 o=vec2(float(i),float(j)); vec2 pp=o+hash2(id+o)-f; float d=dot(pp,pp);
+      if(d<d1){ d1=d; bid=id+o; }
+    }
+    vec2 h=hash2(bid);
+    vec3 n=normalize(vec3(q/R+(h-0.5)*0.9,sqrt(max(1.0-l*l/(R*R),0.0))+0.2));
+    float li=max(dot(n,L),0.0);
+    vec3 fc=pal(uS2.z+h.x*0.3)*0.6+0.2;
+    float e=cellEdge(g);
+    vec3 cc=fc*(li*1.2+0.08)+pow(li,24.0)*vec3(1.3)+(1.0-smoothstep(0.0,0.05,e))*vec3(0.9,0.95,1.0)*0.5;
+    col=mix(col,cc,1.0-smoothstep(R-0.008,R,l));
+  }
+  return col;
+}
+`,
+  artBlackHole: `vec3 artBlackHole(vec2 p){
+  vec2 c=(uS1.xy-0.5)*0.4; vec2 q=p-c;
+  float Rs=0.17+0.04*uS1.z;
+  float r=length(q);
+  vec2 lq=q*(1.0+Rs*Rs*1.2/max(dot(q,q),1e-4));
+  vec3 col=nebula(lq+c,vec3(0.2,0.08,0.3),vec3(0.05,0.1,0.3))*0.7+starfield(lq+c,1.0);
+  mat2 R2=rot(uS2.x*0.8-0.4);
+  vec2 dq=R2*q; float tilt=0.18+0.1*uS2.y;
+  vec2 dk=vec2(dq.x,dq.y/tilt); float rd=length(dk), ang=atan(dk.y,dk.x);
+  float band=smoothstep(Rs*1.5,Rs*1.7,rd)*(1.0-smoothstep(Rs*3.0,Rs*6.5,rd));
+  float sw=fbm(vec2(ang*3.0+log(rd+1e-3)*5.0,rd*12.0)+uS2.zw*7.0);
+  float dop=0.55+0.65*max(cos(ang),0.0);
+  vec3 dc=mix(vec3(1.0,0.4,0.1),vec3(1.0,0.9,0.7),1.0-smoothstep(Rs*1.5,Rs*4.0,rd));
+  float ar=length(vec2(dq.x,dq.y*0.9));
+  float arc=smoothstep(Rs*1.05,Rs*1.15,ar)*(1.0-smoothstep(Rs*1.25,Rs*1.9,ar));
+  col+=dc*arc*(0.6+0.7*fbm(vec2(atan(dq.y,dq.x)*4.0,ar*20.0)))*1.2;
+  col+=vec3(1.0,0.9,0.75)*exp(-abs(r-Rs*1.02)*200.0)*1.4;
+  if(r<Rs) col=vec3(0.0);
+  vec3 disk=dc*band*(0.3+1.0*sw)*dop*1.6;
+  col+=disk*(r>Rs ? 1.0 : step(dq.y,0.0));
+  return col;
+}
+`,
+  artPulsar: `vec3 artPulsar(vec2 p){
+  vec3 col=vec3(0.005,0.006,0.015)+starfield(p,1.0);
+  vec2 c=(uS1.xy-0.5)*0.4; vec2 q=p-c; float rr=length(q);
+  float n=fbm(q*2.5+uS2.zw*9.0+fbm(q*4.0));
+  col+=mix(vec3(0.15,0.3,0.8),vec3(0.9,0.3,0.4),smoothstep(0.4,0.7,n))*pow(n,2.0)*exp(-rr*1.3)*1.8;
+  float a=uS2.y*3.1416; vec2 ax=vec2(cos(a),sin(a)), pe=vec2(-ax.y,ax.x);
+  float al=dot(q,ax), pr=dot(q,pe);
+  float cone=abs(pr)/(abs(al)+0.02);
+  float side=al>0.0 ? 1.0 : 0.55;
+  col+=vec3(0.6,0.8,1.0)*exp(-cone*cone*90.0)*(0.4+0.6*exp(-abs(al)*0.8))*1.3*side;
+  col+=vec3(1.0)*exp(-abs(pr)*400.0)*exp(-abs(al)*1.0)*1.5*side;
+  for(int i=1;i<5;i++){
+    float k=0.13*float(i)*float(i);
+    float lr=k*al*al/(rr*rr+1e-4);
+    col+=vec3(0.3,1.0,0.8)*exp(-abs(rr-lr)*110.0)*0.35*step(0.03,rr);
+  }
+  col+=vec3(0.9,0.95,1.0)*(exp(-rr*70.0)*3.0+exp(-rr*12.0)*0.4);
+  return col;
+}
+`,
+  artWormhole: `vec3 artWormhole(vec2 p){
+  vec2 c=(uS1.xy-0.5)*0.5; vec2 q=p-c; float r=length(q); float R=0.36+0.06*uS1.z;
+  vec2 lq=q*(1.0+R*R*0.6/max(r*r,1e-4));
+  vec3 col=nebula(lq*0.8+c,vec3(0.1,0.1,0.35),vec3(0.3,0.05,0.25))+starfield(lq+c,1.1);
+  if(r<R){
+    float z=sqrt(1.0-r*r/(R*R));
+    vec2 inner=q/(R*(z+0.25));
+    vec2 g=inner*0.8+(uS2.zw-0.5)*0.6;
+    float sp=pow(0.5+0.5*cos(2.0*(atan(g.y,g.x)-log(length(g)+0.05)*2.5)),3.0)*exp(-length(g)*1.4);
+    vec3 other=vec3(0.02,0.0,0.03)+pal(uS2.x+0.6)*sp*1.5+vec3(1.0,0.85,0.6)*exp(-length(g)*8.0)*1.5;
+    other+=vec3(1.0)*starL(inner,40.0,7.0,0.85)*1.2;
+    col=other*(0.4+0.6*z)+pal(uS2.x)*pow(1.0-z,3.0)*0.9;
+  }
+  col+=pal(uS2.x)*exp(-abs(r-R)*90.0)*0.8;
+  return col;
+}
+`,
+  artSupernova: `vec3 artSupernova(vec2 p){
+  vec3 col=vec3(0.004,0.004,0.012)+starfield(p,1.0);
+  vec2 c=(uS1.xy-0.5)*0.4; vec2 q=p-c; float r=length(q), a=atan(q.y,q.x);
+  vec2 cs=vec2(cos(a),sin(a));
+  float R=0.62+0.12*(fbm(cs*1.5+uS2.x*9.0)-0.5)+0.08*sin(a+uS2.y*6.0);
+  float n=fbm(cs*3.0+vec2(r*8.0)+uS2.zw*9.0);
+  float fil=pow(fbm(q*7.0+uS1.zw*20.0),3.0);
+  float shell=exp(-pow((r-R)*9.0,2.0));
+  float inside=smoothstep(R,R*0.2,r);
+  vec3 hue=mix(vec3(1.0,0.35,0.2),vec3(0.3,0.8,1.0),smoothstep(-0.5,0.5,sin(a+uS2.y*6.0)));
+  col+=hue*shell*(0.6+1.2*n);
+  col+=mix(vec3(0.9,0.5,0.2),vec3(0.4,0.6,1.0),n)*fil*inside*2.4;
+  col+=vec3(1.0,0.9,0.8)*(exp(-r*40.0)*2.5+exp(-r*6.0)*0.2);
+  float ja=uS2.y*3.14; vec2 jd=vec2(cos(ja),sin(ja));
+  float jp=abs(dot(q,vec2(-jd.y,jd.x)));
+  col+=vec3(0.5,0.75,1.0)*exp(-jp*90.0)*exp(-abs(dot(q,jd))*1.5)*0.9;
+  return col;
+}
+`,
+  artRogue: `vec3 artRogue(vec2 p){
+  vec3 col=nebula(p,vec3(0.08,0.04,0.12),vec3(0.03,0.05,0.12))*0.6+starfield(p,0.8);
+  vec2 g=vec2(0.5-uS1.x,0.6-uS1.y*0.3);
+  vec2 gq=rot(1.0)*(p-g); gq.y*=3.0;
+  col+=vec3(0.6,0.55,0.75)*(exp(-length(gq)*9.0)*0.7+exp(-length(gq)*40.0));
+  vec2 c=vec2(-0.3+0.6*uS1.z,-0.3); float R=0.62;
+  vec2 d=(p-c)/R; float l=length(d);
+  vec3 L=normalize(vec3(g-c,0.15));
+  if(l<1.0){
+    vec3 n=vec3(d,sqrt(1.0-l*l));
+    float rim=pow(max(dot(n,L),0.0),3.0);
+    float ice=fbm(d*4.0+uS2.zw*9.0);
+    float cracks=1.0-smoothstep(0.0,0.04,cellEdge(d*5.0+uS2.xy*7.0));
+    vec3 pc=vec3(0.04,0.05,0.07)*(0.6+0.8*ice)+vec3(0.5,0.65,0.9)*rim*(0.6+0.6*ice)+vec3(0.2,0.5,0.6)*cracks*(0.2+0.5*rim);
+    col=mix(col,pc,1.0-smoothstep(0.98,1.0,l));
+  }
+  col+=vec3(0.4,0.6,1.0)*exp(-abs(l-1.0)*R*90.0)*smoothstep(-0.2,0.8,dot(normalize(p-c+1e-4),normalize(g-c)))*0.9;
+  col+=vec3(0.1,0.8,0.5)*0.3*exp(-abs(l-1.08-0.05*sin(atan(d.y,d.x)*5.0))*40.0)*smoothstep(0.3,0.9,d.y/max(l,1e-3));
+  return col;
+}
+`,
+  artDyingStar: `vec3 artDyingStar(vec2 p){
+  vec3 col=vec3(0.006,0.002,0.003)+starfield(p,0.6);
+  vec2 c=vec2(0.35-0.7*uS1.x,0.3-0.6*uS1.y)*0.6; float R=0.58;
+  vec2 d=(p-c)/R; float l=length(d), a=atan(d.y,d.x);
+  col+=vec3(0.5,0.12,0.06)*exp(-abs(l-1.5-0.12*fbm(vec2(cos(a),sin(a))*3.0+uS2.x*9.0))*12.0)*0.6;
+  col+=vec3(0.6,0.1,0.03)*exp(-max(l-1.0,0.0)*R*6.0)*0.6*step(1.0,l);
+  if(l<1.0){
+    float z=sqrt(1.0-l*l);
+    float conv=fbm(d*5.0+uS2.zw*7.0)+0.5*cellEdge(d*6.0+uS2.xy*9.0);
+    col=mix(vec3(0.35,0.03,0.01),vec3(0.95,0.35,0.08),z*0.8)*(0.55+0.6*conv)*(0.5+0.6*z)*(1.0-smoothstep(0.98,1.0,l))+col*smoothstep(0.98,1.0,l);
+  }
+  vec2 pc=c+rot(uS2.x*6.28)*vec2(R*0.75,0.0); float pr=0.13;
+  float pl=length(p-pc);
+  float pm=1.0-smoothstep(pr-0.006,pr,pl);
+  col=mix(col,vec3(0.01,0.005,0.005)+vec3(0.8,0.25,0.05)*exp(-(pr-pl)*80.0)*0.6,pm);
+  return col;
+}
+`,
+  artGhost: `vec3 artGhost(vec2 p){
+  vec2 q=p*1.4+uS1.xy*9.0;
+  vec2 w=vec2(fbm(q+vec2(0.0,1.7)),fbm(q+vec2(5.2,1.3)));
+  float n=fbm(q+3.0*w);
+  float tend=pow(1.0-abs(2.0*fbm(q*1.6+2.0*w)-1.0),5.0);
+  vec3 col=vec3(0.005,0.008,0.01)+starfield(p,0.7);
+  col+=mix(vec3(0.25,0.35,0.3),vec3(0.6,0.75,0.7),w.x)*pow(n,2.2)*1.0;
+  col+=vec3(0.55,0.8,0.7)*tend*0.5;
+  col*=0.6+0.5*smoothstep(0.2,0.7,fbm(q*2.0-w));
+  vec2 sc=seedPos(1.0,21.0)*0.8; float sd=length(p-sc);
+  col+=vec3(0.7,0.9,1.0)*(exp(-sd*60.0)*2.0+exp(-sd*7.0)*0.25);
+  return col;
+}
+`,
+  artDyson: `vec3 artDyson(vec2 p){
+  vec3 col=nebula(p,vec3(0.15,0.02,0.04),vec3(0.05,0.02,0.08))*0.7+starfield(p,0.6);
+  vec2 c=(uS1.xy-0.5)*0.35; vec2 q=p-c; float r=length(q);
+  col+=vec3(1.0,0.75,0.5)*(exp(-r*30.0)*2.0+exp(-r*5.0)*0.4);
+  float R=0.66;
+  if(r<R){
+    vec3 n=vec3(q/R,sqrt(1.0-r*r/(R*R)));
+    vec3 m=n; m.xz=rot(uS2.x*6.28)*m.xz; m.yz=rot(0.4)*m.yz;
+    float lat=asin(clamp(m.y,-1.0,1.0)), lon=atan(m.x,m.z);
+    vec2 gp=vec2(lon*6.0/3.1416,lat*6.0/3.1416);
+    vec2 cell=floor(gp); vec2 f=fract(gp);
+    float built=step(0.42,hash(cell+uS2.zw*20.0));
+    float frame=1.0-smoothstep(0.03,0.07,min(min(f.x,1.0-f.x),min(f.y,1.0-f.y)));
+    col=mix(col,vec3(0.02,0.015,0.02)+vec3(0.18,0.06,0.03)*f.y*n.z,built*0.93);
+    col=mix(col,vec3(0.75,0.45,0.25)*(0.4+0.6*n.z),frame*0.75);
+    col+=vec3(1.0,0.4,0.1)*step(0.96,hash(cell*1.7))*built*0.9;
+  }
+  col+=vec3(1.0,0.6,0.3)*exp(-abs(r-R)*80.0)*0.45;
+  return col;
+}
+`,
+  artVoidEye: `vec3 artVoidEye(vec2 p){
+  vec3 col=vec3(0.004,0.002,0.004)+starfield(p,0.6);
+  col+=vec3(0.3,0.04,0.04)*pow(fbm(p*2.0+uS1.zw*5.0),3.0)*1.4;
+  vec2 c=(uS1.xy-0.5)*0.3; vec2 q=rot(uS2.y*0.8-0.4)*(p-c);
+  float w=0.85, h=0.42;
+  float lid=abs(q.y)-h*(1.0-q.x*q.x/(w*w));
+  float inEye=1.0-smoothstep(-0.01,0.01,lid);
+  float r=length(q), a=atan(q.y,q.x);
+  float fib=fbm(vec2(cos(a),sin(a))*6.0+vec2(r*3.0)+uS2.zw*9.0);
+  vec3 iris=mix(vec3(0.5,0.05,0.03),vec3(1.0,0.5,0.15),smoothstep(0.1,0.38,r))*(0.4+0.9*fib);
+  vec3 sclera=vec3(0.06,0.02,0.03)+vec3(0.3,0.05,0.04)*pow(fbm(q*6.0+fbm(q*3.0)),2.0)*1.5;
+  vec3 e=mix(sclera,iris,1.0-smoothstep(0.38,0.42,r));
+  e=mix(e,vec3(0.0),1.0-smoothstep(0.1,0.13,r));
+  e+=vec3(0.7,0.65,0.9)*exp(-length((q-vec2(0.03,0.02))*vec2(1.0,3.0))*60.0)*0.8*step(r,0.12);
+  col=mix(col,e,inEye);
+  col+=vec3(0.8,0.2,0.1)*exp(-abs(lid)*60.0)*0.55;
+  return col;
+}
+`,
+  artArcade: `vec3 artArcade(vec2 p){
+  vec3 col=vec3(0.0,0.005,0.012);
+  float d=9.0;
+  for(int i=0;i<7;i++){
+    float fi=float(i);
+    vec2 c=seedPos(fi,31.0)*1.25; float R=0.07+0.12*hash(vec2(fi,uS2.x*5.0));
+    vec2 q=p-c; float a=atan(q.y,q.x);
+    float k=floor((a+3.1416)/6.2832*8.0);
+    float a0=k/8.0*6.2832-3.1416, a1=(k+1.0)/8.0*6.2832-3.1416;
+    float r0=R*(0.75+0.35*hash(vec2(k,fi))), r1=R*(0.75+0.35*hash(vec2(mod(k+1.0,8.0),fi)));
+    d=min(d,segD(q,vec2(cos(a0),sin(a0))*r0,vec2(cos(a1),sin(a1))*r1));
+  }
+  col+=vec3(0.85,0.95,1.0)*(exp(-d*400.0)*1.1+exp(-d*40.0)*0.12);
+  vec2 wc=vec2(-0.6+1.2*uS1.x,uS1.y>0.5?0.62:-0.62); float wr=0.32; vec2 wq=p-wc;
+  float wd=abs(length(wq)-wr);
+  for(int i=1;i<4;i++){ float s=0.25*float(i); wd=min(wd,abs(length(wq*vec2(1.0,1.0/s))-wr)+step(wr,length(wq))); }
+  wd=min(wd,abs(wq.x)+step(wr,length(wq)));
+  vec3 c1=pal(uS2.z+0.5), c2=pal(uS2.z);
+  col+=c2*(exp(-wd*300.0)*0.9+exp(-wd*30.0)*0.08);
+  vec2 sc=(uS1.zw-0.5)*0.6; mat2 sr=rot(uS2.y*6.28); vec2 sq=sr*(p-sc);
+  float ds=min(min(segD(sq,vec2(0.0,0.09),vec2(-0.05,-0.06)),segD(sq,vec2(0.0,0.09),vec2(0.05,-0.06))),segD(sq,vec2(-0.04,-0.03),vec2(0.04,-0.03)));
+  col+=c1*(exp(-ds*400.0)*1.4+exp(-ds*40.0)*0.25);
+  vec2 bd=vec2(0.0,1.0)*sr;
+  for(int i=0;i<8;i++){ vec2 bp=sc+bd*(0.15+0.13*float(i)); col+=c1*exp(-length(p-bp)*160.0)*1.3; }
+  return col;
+}
+`,
+  artSkyline: `vec3 artSkyline(vec2 p){
+  float hz=-0.25+0.2*(uS1.x-0.5);
+  vec3 c1=pal(uS2.z), c2=pal(uS2.z+0.5);
+  vec3 col=mix(vec3(0.16,0.02,0.2),vec3(0.01,0.01,0.05),smoothstep(hz,0.9,p.y));
+  col+=c1*0.5*pow(fbm(vec2(p.x*1.5,p.y*7.0)+uS1.zw*9.0),3.0)*smoothstep(hz,hz+0.5,p.y);
+  vec2 mc=vec2(0.5-uS1.y,0.55); float md=length(p-mc);
+  col=mix(col,vec3(1.0,0.9,0.95),1.0-smoothstep(0.13,0.135,md));
+  col+=c2*exp(-max(md-0.135,0.0)*10.0)*0.4;
+  col+=starfield(p,0.6)*smoothstep(hz+0.3,hz+0.7,p.y);
+  if(p.y<hz){
+    float st=hash(vec2(floor(p.x*40.0),5.0));
+    col=vec3(0.01,0.0,0.03)+mix(c1,c2,st)*step(0.55,st)*(0.5+0.5*sin(p.y*120.0+st*20.0))*exp((p.y-hz)*2.5)*0.75;
+  }
+  for(int l=0;l<3;l++){
+    float fl=float(l);
+    float sc=7.0+fl*5.0; float xx=p.x*sc+fl*13.0+uS2.x*20.0;
+    float bx=floor(xx), fx=fract(xx);
+    float bh=hz+0.08+(0.55-fl*0.14)*pow(hash(vec2(bx,fl+uS2.y*7.0)),1.5);
+    float inB=step(p.y,bh)*step(hz,p.y)*step(0.06,fx)*step(fx,0.94);
+    vec3 wc=mix(c1,c2,hash(vec2(bx,3.0)));
+    float win=step(0.55,hash(floor(vec2(fx*5.0,p.y*sc*3.0))+bx*7.0))*step(0.2,fract(fx*5.0))*step(0.3,fract(p.y*sc*3.0));
+    if(inB>0.5) col=mix(vec3(0.02,0.0,0.05),vec3(0.06,0.02,0.1),fl/2.0)+wc*win*(0.5+0.3*fl)*0.9;
+    col+=wc*(1.0-smoothstep(0.0,0.006,abs(p.y-bh)))*step(0.06,fx)*step(fx,0.94)*step(hz,p.y)*0.8*step(0.5,hash(vec2(bx,9.0)));
+  }
+  col+=c1*exp(-abs(p.y-hz)*120.0)*0.6;
+  return col;
+}
+`,
+  artDNA: `vec3 artDNA(vec2 p){
+  vec3 col=vec3(0.005,0.01,0.03)+vec3(0.02,0.05,0.1)*fbm(p*3.0+uS2.zw*7.0);
+  vec3 c1=pal(uS2.z), c2=pal(uS2.z+0.4);
+  for(int k=0;k<2;k++){
+    float fk=float(k);
+    float a=uS2.y*3.14+fk*1.4; vec2 dir=vec2(cos(a),sin(a)), nrm=vec2(-dir.y,dir.x);
+    float off=(hash(vec2(fk,uS1.x*9.0))-0.5)*0.9;
+    float s=dot(p,dir)*9.0+uS1.z*6.0; float y=dot(p,nrm)-off;
+    float amp=0.11-fk*0.03, k2=1.0-fk*0.45;
+    float y1=amp*sin(s), y2=amp*sin(s+3.1416);
+    float d1=abs(y-y1), d2=abs(y-y2);
+    float fr=0.5+0.5*cos(s);
+    col+=c1*(exp(-d1*180.0)*(0.5+0.8*fr)+exp(-d1*25.0)*0.1)*k2;
+    col+=c2*(exp(-d2*180.0)*(0.5+0.8*(1.0-fr))+exp(-d2*25.0)*0.1)*k2;
+    float rung=step(abs(fract(s/3.1416*2.0)-0.5),0.07)*step(min(y1,y2),y)*step(y,max(y1,y2));
+    col+=mix(c1,c2,smoothstep(y1,y2,y))*rung*0.7*k2;
+  }
+  for(int i=0;i<6;i++){
+    float fi=float(i); vec2 mc=seedPos(fi,41.0)*1.2; vec2 q=rot(fi)*(p-mc); vec2 aq=abs(q);
+    float hx=max(dot(aq,vec2(0.866,0.5)),aq.y)-0.05;
+    col+=c2*exp(-abs(hx)*300.0)*0.9+c1*exp(-length(q-vec2(0.09,0.0))*150.0);
+  }
+  col+=vec3(0.8,0.9,1.0)*starL(p,50.0,uS1.w*9.0,0.95)*0.8;
+  return col;
+}
+`,
+  artRain: `vec3 artRain(vec2 p){
+  vec3 c1=pal(uS2.z+0.3);
+  vec2 g=p*vec2(18.0,26.0)+uS1.xy*30.0;
+  float cid=floor(g.x); float sp=hash(vec2(cid,uS2.x*7.0));
+  float head=fract(sp*7.0+uS2.y)*2.6-1.3;
+  float trail=smoothstep(head-0.9*sp-0.25,head,p.y)*step(p.y,head);
+  vec2 cell=floor(g); vec2 f=fract(g);
+  float glyph=step(0.5,hash(cell*1.3+floor(f*vec2(3.0,4.0))))*step(0.15,f.x)*step(f.x,0.85)*step(0.1,f.y)*step(f.y,0.9);
+  float on=step(0.25,hash(vec2(cid,13.0)));
+  vec3 col=vec3(0.0,0.012,0.01);
+  col+=c1*glyph*trail*on*(0.25+0.9*smoothstep(head-0.15,head,p.y));
+  col+=vec3(0.85,1.0,0.95)*glyph*on*step(head-0.04,p.y)*step(p.y,head)*1.3;
+  return col;
+}
+`,
+  artRidges: `vec3 artRidges(vec2 p){
+  vec3 c1=pal(uS2.z), c2=pal(uS2.z+0.5);
+  vec3 bg=vec3(0.005,0.004,0.015);
+  vec3 col=bg;
+  for(int i=0;i<22;i++){
+    float fi=float(i);
+    float y0=0.98-fi*0.093;
+    float cx=(hash(vec2(fi,uS1.x*9.0))-0.5)*0.6;
+    float env=exp(-pow(p.x-cx,2.0)*4.0);
+    vec2 bq=vec2(p.x*3.0,fi*0.7)+uS1.zw*9.0;
+    float bump=env*pow(0.55*noise(bq)+0.3*noise(bq*2.1+3.0)+0.15*noise(bq*4.3),2.0)*(0.6+0.8*hash(vec2(fi,uS2.y*5.0)));
+    float y=y0+bump*0.55+0.012*noise(vec2(p.x*25.0,fi));
+    if(p.y<y) col=bg;
+    col+=mix(c1,c2,fi/21.0)*exp(-abs(p.y-y)*260.0)*1.15;
+  }
+  return col;
+}
+`,
+  artGlitch: `vec3 artGlitch(vec2 p){
+  vec3 c1=pal(uS2.z), c2=pal(uS2.z+0.5);
+  vec2 ip=(uS1.xy-0.5)*0.8;
+  vec2 q=p-ip; float r=length(q), a=atan(q.y,q.x);
+  float rb=floor(r*5.0);
+  float u=(a+3.1416)/6.2832*11.0+hash(vec2(rb,2.0))*0.6;
+  vec2 sid=vec2(floor(u),rb);
+  vec2 sh=(hash2(sid+uS2.xy*9.0)-0.5)*0.06*smoothstep(0.0,0.4,r);
+  vec2 pp=p+sh;
+  vec3 img=mix(c1,c2,smoothstep(-0.9,0.9,pp.y+0.3*sin(pp.x*3.0+uS2.y*6.0)))*0.55;
+  img*=0.6+0.4*step(0.5,fract(pp.y*8.0+pp.x*0.5));
+  img+=vec3(1.0)*0.35*exp(-abs(pp.x+pp.y*0.3-(uS1.z-0.5))*30.0);
+  vec3 col=img*(0.45+0.55*hash(sid));
+  float row=floor(p.y*24.0);
+  float gb=step(0.85,hash(vec2(row,uS2.w*9.0)))*step(0.3,hash(vec2(floor(p.x*6.0),row)));
+  col=mix(col,vec3(img.r*1.6,img.g*0.2,img.b*1.4),gb);
+  float fa=fract(u); float crA=min(fa,1.0-fa)*r*6.2832/11.0;
+  float fr=fract(r*5.0); float crR=min(fr,1.0-fr)/5.0;
+  float cr=min(crA,crR);
+  col+=vec3(0.9,0.95,1.0)*exp(-cr*500.0)*0.9;
+  col+=vec3(1.0)*exp(-r*30.0)*1.5;
+  col*=0.85+0.15*sin(p.y*300.0);
+  return col;
+}
+`,
+  artShards: `vec3 artShards(vec2 p){
+  vec3 c1=pal(uS2.z), c2=pal(uS2.z+0.35), c3=pal(uS2.z+0.7);
+  vec2 q=rot(uS2.y)*p*4.0+uS1.xy*10.0;
+  vec2 sk=vec2(q.x+q.y*0.57735,q.y*1.1547);
+  vec2 id=floor(sk); vec2 f=fract(sk);
+  float up=step(f.x+f.y,1.0);
+  vec2 tid=id*2.0+vec2(up,0.0);
+  float h=hash(tid+uS2.w*7.0);
+  float e=min(min(f.x,f.y),abs(1.0-f.x-f.y));
+  vec3 tc=h<0.33?c1:(h<0.66?c2:c3);
+  float on=step(0.25,hash(tid*1.7));
+  float glow=smoothstep(-0.8,0.9,p.x*cos(uS1.z*6.0)+p.y*sin(uS1.z*6.0));
+  vec3 col=vec3(0.01,0.005,0.02);
+  col+=tc*on*(0.1+0.4*glow*h);
+  col+=tc*exp(-e*30.0)*0.9*on;
+  col+=vec3(1.0)*exp(-e*90.0)*0.3*on;
+  return col;
+}
+`,
+  artContour: `vec3 artContour(vec2 p){
+  vec3 c1=pal(uS2.z), c2=pal(uS2.z+0.5);
+  float h=fbm(p*1.6+uS1.xy*9.0)*1.4+0.3*fbm(p*4.0+3.0);
+  float lv=h*14.0; float f=abs(fract(lv)-0.5);
+  float major=step(abs(mod(floor(lv+0.5),5.0)),0.0);
+  vec3 col=vec3(0.005,0.01,0.02)+mix(c1,c2,smoothstep(0.3,1.2,h))*0.06;
+  col+=mix(c1,c2,smoothstep(0.3,1.2,h))*smoothstep(0.42,0.5,f)*(0.45+0.6*major);
+  float d=9.0; vec2 a=seedPos(0.0,61.0)*1.1;
+  for(int i=1;i<5;i++){
+    vec2 b=seedPos(float(i),61.0)*1.1;
+    d=min(d,segD(p,a,b));
+    col+=vec3(1.0)*exp(-abs(length(p-b)-0.035)*300.0)*0.9;
+    a=b;
+  }
+  col+=vec3(1.0,0.95,0.85)*(1.0-smoothstep(0.004,0.008,d))*step(0.5,fract(length(p)*40.0))*0.9;
+  return col;
+}
+`,
+  artTunnel: `vec3 artTunnel(vec2 p){
+  vec3 c1=pal(uS2.z), c2=pal(uS2.z+0.5);
+  vec2 vp=(uS1.xy-0.5)*0.9; vec2 q=p-vp; float r=length(q)+1e-3, a=atan(q.y,q.x);
+  float z=0.25/r;
+  float fz=abs(fract(z*1.2+uS2.x)-0.5);
+  float ringL=smoothstep(0.43,0.5,fz);
+  float fa=abs(fract(a/6.2832*16.0+uS2.w)-0.5);
+  float spokeL=smoothstep(0.46,0.5,fa);
+  float fade=exp(-z*0.18);
+  vec3 lc=mix(c1,c2,0.5+0.5*sin(a+uS2.y*6.0));
+  vec3 col=vec3(0.006,0.004,0.016)+lc*(ringL*0.9+spokeL*0.5)*fade;
+  col+=lc*0.15*fade*smoothstep(0.0,0.5,r);
+  col+=vec3(1.0,0.95,0.9)*exp(-r*18.0)*1.4;
+  return col;
+}
+`,
+  artCollider: `vec3 artCollider(vec2 p){
+  vec3 c1=pal(uS2.z), c2=pal(uS2.z+0.5);
+  vec2 v=(uS1.xy-0.5)*0.3; vec2 q=p-v; float r=length(q), a=atan(q.y,q.x);
+  vec3 col=vec3(0.004,0.006,0.012);
+  for(int i=1;i<5;i++){ col+=vec3(0.15,0.2,0.3)*exp(-abs(r-float(i)*0.17)*300.0)*0.5; }
+  float u=(a+3.1416)/6.2832*48.0; float sec=floor(u);
+  float e=pow(hash(vec2(sec,uS2.x*7.0)),3.0);
+  float tower=step(0.75,r)*step(r,0.77+0.33*e)*step(0.12,fract(u));
+  col+=mix(c1,c2,e)*tower*(0.35+0.9*e);
+  for(int i=0;i<12;i++){
+    float fi=float(i);
+    float ph=hash(vec2(fi,uS2.y*9.0))*6.2832; float R=0.12+0.9*hash(vec2(fi,uS1.z*7.0));
+    float sg=hash(vec2(fi,5.0))<0.5?-1.0:1.0;
+    vec2 cc=vec2(cos(ph),sin(ph))*R;
+    float d=abs(length(q-cc)-R);
+    vec2 t=vec2(-sin(ph),cos(ph))*sg;
+    float lim=step(r,0.75)*step(-0.01,dot(q,t));
+    col+=mix(c1,c2,hash(vec2(fi,1.0)))*exp(-d*350.0)*1.1*lim;
+  }
+  col+=vec3(1.0)*exp(-r*40.0)*1.5;
+  return col;
+}
+`,
+  artField: `vec3 artField(vec2 p){
+  vec2 a=vec2(-0.35,0.1)+(uS1.xy-0.5)*0.4, b=vec2(0.4,-0.15)+(uS1.zw-0.5)*0.4;
+  vec2 qa=p-a, qb=p-b;
+  float psi=atan(qa.y,qa.x)-atan(qb.y,qb.x);
+  float f=abs(fract(psi/6.2832*18.0)-0.5);
+  float pot=log(length(qa)/length(qb));
+  float g=abs(fract(pot*2.0)-0.5);
+  vec3 cA=vec3(1.0,0.3,0.3), cB=vec3(0.3,0.6,1.0);
+  vec3 lc=mix(cA,cB,smoothstep(-1.5,1.5,pot));
+  vec3 col=vec3(0.004,0.006,0.014);
+  col+=lc*smoothstep(0.4,0.5,f)*0.9;
+  col+=vec3(0.3,0.9,0.6)*smoothstep(0.46,0.5,g)*0.3;
+  col+=cA*exp(-length(qa)*40.0)*1.6+cB*exp(-length(qb)*40.0)*1.6;
+  return col;
+}
+`,
+  artWarpGrid: `vec3 artWarpGrid(vec2 p){
+  vec3 c1=pal(uS2.z), c2=pal(uS2.z+0.5);
+  vec2 d=vec2(0.0); vec3 glow=vec3(0.0);
+  for(int i=0;i<3;i++){
+    float fi=float(i); vec2 c=seedPos(fi,51.0)*0.9; float m=0.04+0.08*hash(vec2(fi,uS2.x*5.0));
+    vec2 q=p-c; float r2=dot(q,q);
+    d-=q*m/(r2+0.02);
+    glow+=mix(c1,c2,fi/2.0)*exp(-sqrt(r2)*40.0)*1.5;
+  }
+  vec2 f=abs(fract((p+d)*7.0)-0.5);
+  float line=smoothstep(0.42,0.5,max(f.x,f.y));
+  return vec3(0.005,0.004,0.015)+mix(c1,c2,smoothstep(-1.0,1.0,p.x*0.7+p.y*0.5))*line*0.85+glow;
+}
+`,
+  artAlert: `vec3 artAlert(vec2 p){
+  vec3 red=vec3(1.0,0.12,0.08), amb=vec3(1.0,0.6,0.1);
+  vec3 col=vec3(0.02,0.0,0.0)+red*0.06*fbm(p*3.0);
+  float a=uS2.y*1.57+0.4; vec2 dir=vec2(cos(a),sin(a)), nrm=vec2(-dir.y,dir.x);
+  float d=dot(p,nrm)-(uS1.x-0.5)*0.6;
+  float band=step(abs(d),0.11);
+  float stripe=step(0.5,fract(dot(p,dir)*5.0+d*5.0));
+  col=mix(col,mix(vec3(0.05,0.0,0.0),amb*0.8,stripe),band);
+  col+=amb*exp(-abs(abs(d)-0.11)*300.0)*0.8;
+  vec2 tc=(uS1.zw-0.5)*0.9; float tri=sdTri(p-tc,0.16);
+  col=mix(col,red*0.15,step(tri,0.0));
+  col+=red*exp(-abs(tri)*200.0)*1.2;
+  float bar=step(abs(p.x-tc.x),0.012)*step(abs(p.y-tc.y-0.01),0.05);
+  float dt=1.0-smoothstep(0.012,0.016,length(p-tc-vec2(0.0,-0.075)));
+  col=mix(col,red,max(bar,dt));
+  vec2 tp=p-vec2(-0.85+0.3*uS2.x,0.55); vec2 cell=floor(tp*vec2(30.0,18.0)); vec2 f=fract(tp*vec2(30.0,18.0));
+  float txt=step(0.0,tp.x)*step(tp.x,0.9)*step(-0.35,tp.y)*step(tp.y,0.0)*step(0.4,hash(cell+uS2.w*5.0))*step(0.2,f.x)*step(0.25,f.y)*step(f.y,0.75)*step(0.3,hash(vec2(cell.y,9.0)));
+  col+=red*txt*0.85;
+  vec2 bq=abs(p-vec2(0.45-0.9*uS2.w,-0.45))-vec2(0.22,0.16);
+  float br=max(bq.x,bq.y);
+  float corner=step(0.1,abs(p.x-(0.45-0.9*uS2.w)))*step(0.07,abs(p.y+0.45));
+  col+=amb*exp(-abs(br)*300.0)*corner*1.1;
+  col+=red*exp(-abs(p.y-(uS2.x*2.0-1.0))*40.0)*0.3;
+  col*=0.85+0.15*sin(p.y*260.0);
+  return col;
+}
+`,
+  artTerminal: `vec3 artTerminal(vec2 p){
+  vec3 g=mix(vec3(0.2,1.0,0.4),vec3(1.0,0.7,0.2),step(0.5,uS2.z));
+  vec2 tp=p*vec2(22.0,15.0)+vec2(20.0,0.0); vec2 cell=floor(tp), f=fract(tp);
+  float len=8.0+30.0*hash(vec2(cell.y,uS2.x*9.0)); float ind=floor(hash(vec2(cell.y,3.0))*4.0)*2.0;
+  float inLine=step(ind,cell.x)*step(cell.x,ind+len)*step(0.12,hash(vec2(cell.y,uS1.y*7.0)));
+  float glyph=step(0.35,hash(cell+uS1.xy*20.0))*step(0.15,f.x)*step(f.x,0.8)*step(0.2,f.y)*step(f.y,0.8);
+  float sub=step(0.45,hash(cell*1.7+floor(f*3.0)));
+  float corrupt=step(0.86,hash(vec2(cell.y,uS2.w*7.0)));
+  vec3 col=vec3(0.0,0.012,0.006)+g*0.03;
+  col+=mix(g,vec3(1.0,0.15,0.1),corrupt)*glyph*sub*inLine*(0.6+0.4*hash(cell));
+  float cy=floor(uS1.z*24.0-12.0);
+  float cur=step(abs(cell.y-cy),0.0)*step(abs(cell.x-floor(hash(vec2(cy,uS2.x*9.0))*30.0+10.0)),0.0)*step(0.1,f.x)*step(f.x,0.9);
+  col+=g*cur*1.3;
+  col+=vec3(0.5)*step(0.985,hash(floor(p*vec2(120.0,90.0))+uS2.y*9.0))*0.4;
+  float tear=step(0.9,hash(vec2(floor(p.y*12.0),uS1.w*5.0)));
+  col=mix(col,col.gbr,tear*0.6);
+  col*=0.8+0.2*sin(p.y*240.0);
+  return col;
+}
+`,
+  artSonar: `vec3 artSonar(vec2 p){
+  vec3 amb=mix(vec3(1.0,0.65,0.2),vec3(0.3,0.8,1.0),step(0.5,uS2.z));
+  vec2 q=rot(uS2.y*3.1416)*p;
+  float n=fbm(vec2(q.x*12.0,q.y*3.0)+uS1.xy*20.0)*0.7+0.3*noise(vec2(q.x*60.0,q.y*40.0));
+  vec3 col=amb*n*(0.15+0.45*smoothstep(-1.0,0.3,q.x));
+  col*=smoothstep(0.02,0.08,abs(q.x+0.55));
+  vec2 oc=vec2(0.05+0.3*uS1.z,(uS1.w-0.5)*0.8); vec2 o=q-oc;
+  float body=length(o*vec2(1.0/0.16,1.0/0.48))-1.0+0.25*(fbm(o*10.0)-0.5);
+  float sh=step(0.0,body)*step(0.0,o.x)*smoothstep(0.5,0.32,abs(o.y))*smoothstep(1.4,0.9,o.x);
+  col*=1.0-0.9*sh;
+  col=mix(col,amb*(0.6+0.5*fbm(o*14.0)),1.0-smoothstep(0.0,0.1,body));
+  for(int i=1;i<5;i++) col+=amb*0.2*exp(-abs(q.x-(-0.55+float(i)*0.35))*220.0);
+  return col+vec3(0.0,0.003,0.006);
+}
+`,
+  artVeins: `vec3 artVeins(vec2 p){
+  vec2 w=p*3.0+uS1.xy*9.0; w+=vec2(fbm(w),fbm(w+4.0))*1.2;
+  float e1=cellEdge(w), e2=cellEdge(w*2.3+7.0);
+  vec3 c=mix(vec3(1.0,0.1,0.15),vec3(0.9,0.2,0.8),uS2.z);
+  vec3 col=vec3(0.02,0.0,0.01)+c*0.07*fbm(p*4.0);
+  col+=c*(exp(-e1*25.0)*1.1+exp(-e1*6.0)*0.15);
+  col+=c*0.4*exp(-e2*40.0);
+  col+=vec3(1.0,0.7,0.6)*starL(p,6.0,uS2.x*20.0,0.6)*1.5;
+  return col;
+}
+`,
+  artRunes: `vec3 artRunes(vec2 p){
+  vec3 c1=pal(uS2.z+0.1), c2=pal(uS2.z+0.6);
+  vec2 q=rot(uS2.y*0.6-0.3)*p;
+  vec2 g=q*5.0+uS1.xy*10.0; g.x+=floor(g.y)*0.5*step(0.5,uS1.z);
+  vec2 id=floor(g), f=fract(g)-0.5;
+  vec2 b=abs(f)-0.38; float box=length(max(b,0.0))+min(max(b.x,b.y),0.0)-0.04;
+  float lit=step(0.7,hash(id+uS2.w*3.0));
+  vec3 kc=mix(c1,c2,hash(id));
+  vec3 col=vec3(0.01,0.008,0.02);
+  col+=kc*exp(-abs(box)*120.0)*(0.25+0.8*lit);
+  col=mix(col,vec3(0.03,0.02,0.05)+kc*0.08*lit,step(box,0.0)*0.6);
+  float gd=9.0;
+  for(int k=0;k<3;k++){
+    float fk=float(k);
+    vec2 h1=floor(hash2(id+fk*7.1)*3.0)-1.0, h2=floor(hash2(id+fk*3.3+1.0)*3.0)-1.0;
+    gd=min(gd,segD(f,h1*0.18,h2*0.18+0.001));
+  }
+  col+=kc*(1.0-smoothstep(0.015,0.03,gd))*step(box,0.0)*(0.4+0.9*lit);
+  return col;
+}
+`
+};
+const ART_WRAP = `
+vec3 grade(vec3 c){
+  if(uDimArt<0.5) return c;
+  if(uDimArt<1.5) return c*vec3(0.92,1.02,1.05)+vec3(0.0,0.012,0.02);
+  if(uDimArt<2.5) return c*vec3(0.98,0.94,1.08);
+  if(uDimArt<3.5) return c*vec3(1.08,0.97,0.88);
+  float l=dot(c,vec3(0.3,0.5,0.2)); return mix(vec3(l),c,0.72)*vec3(1.0,0.84,0.86)*0.92;
+}
+vec3 neonGuides(vec2 p){
+  vec3 g=vec3(0.0);
+  for(int i=0;i<3;i++){
+    float fi=float(i);
+    float a=uS1.y*3.1416+fi*1.05+0.3;
+    vec2 dir=vec2(cos(a),sin(a)), nrm=vec2(-dir.y,dir.x);
+    float off=(hash(vec2(fi,uS2.x*11.0))-0.5)*1.1;
+    float d=abs(dot(p,nrm)-off), along=dot(p,dir);
+    float fade=0.3+0.7*smoothstep(-1.1,1.1,along);
+    g+=pal(uS2.z+0.2+fi*0.3)*(exp(-d*240.0)*1.2+exp(-d*28.0)*0.14)*fade;
+  }
+  return g;
+}
+vec2 vary(vec2 p, float s){ if(s>0.5) p.x=-p.x; return rot((uS1.w-0.5)*0.6)*p; }
+vec3 imgA(vec2 p){ return grade(ARTA(vary(p,uS2.w))); }
 vec3 imgB(vec2 p){
-  float s=uStyle.y;
-  if(s<0.5) return artCircuit(p);
-  if(s<1.5) return artSynth(p);
-  if(s<2.5) return artScope(p);
-  if(s<3.5) return artHex(p);
-  if(s<4.5) return artEq(p);
-  if(s<5.5) return artSigil(p);
-  if(s<6.5) return artRadar(p);
-  return artTrails(p);
+  vec3 c=ARTB(vary(p,uS1.z));
+  float lum=dot(c,vec3(0.3,0.5,0.2));
+  return grade(c+neonGuides(p)*(1.0-smoothstep(0.04,0.45,lum)));
 }
-
-vec3 env(vec3 d){
+`;
+const RING_POST = `vec3 env(vec3 d){
   return mix(vec3(0.04,0.05,0.09),vec3(0.55,0.5,0.7),clamp(d.y*0.5+0.5,0.0,1.0))
        + vec3(1.0,0.6,0.3)*pow(max(dot(d,normalize(-vW+vec3(0.0,0.0,0.001))),0.0),8.0)*0.5;
 }
@@ -1296,10 +2098,47 @@ void main(){
   gl_FragColor=vec4(col,1.0);
 }
 `;
+const ART_FRONT = [
+  ['artRinged', 'artEarthrise', 'artMars', 'artSystem', 'artComet'],
+  ['artGalaxy', 'artPillars', 'artRingNeb', 'artCrescent', 'artBinary'],
+  ['artShattered', 'artAsteroid', 'artLava', 'artCrystal', 'artStation'],
+  ['artBlackHole', 'artSupernova', 'artEclipse', 'artPulsar', 'artWormhole'],
+  ['artVoidEye', 'artRogue', 'artDyingStar', 'artDyson', 'artGhost']];
+const ART_BACK = [
+  ['artSynth', 'artCircuit', 'artArcade', 'artEq', 'artScope'],
+  ['artSkyline', 'artTrails', 'artDNA', 'artHex', 'artRain'],
+  ['artGlitch', 'artRadar', 'artRidges', 'artShards', 'artContour'],
+  ['artTunnel', 'artSigil', 'artCollider', 'artField', 'artWarpGrid'],
+  ['artAlert', 'artTerminal', 'artVeins', 'artSonar', 'artRunes']];
+/* each dimension: its own five designs on alternate levels, plus five borrowed from a neighbour, so nothing repeats within a dimension */
+const SIG_F = [1, 0, 3, 4, 2], SIG_B = [1, 0, 4, 2, 3];
+function artFor(L){
+  const d = Math.min(4, Math.floor((L - 1) / 10)), k = (L - 1) % 10, kb = (k + 3) % 10;
+  return [k % 2 ? ART_FRONT[SIG_F[d]][(k - 1) / 2] : ART_FRONT[d][k / 2],
+          kb % 2 ? ART_BACK[d][(kb - 1) / 2] : ART_BACK[SIG_B[d]][(kb / 2 + 2) % 5]];
+}
+const artSrc = (a, b) => ART_HELP + ART_FN[a] + ART_FN[b] + ART_WRAP.replace('ARTA', a).replace('ARTB', b);
+const ringSrc = (a, b) => RING_PRE + artSrc(a, b) + RING_POST;
 
+const BAKE_R = 1.12;
+const FS_RING_LITE = RING_PRE + `
+uniform sampler2D uArtA;
+uniform sampler2D uArtB;
+vec3 imgA(vec2 p){ vec4 t=texture2D(uArtA,p/` + (2 * BAKE_R).toFixed(2) + `+0.5); return t.rgb*t.rgb*4.0; }
+vec3 imgB(vec2 p){ vec4 t=texture2D(uArtB,p/` + (2 * BAKE_R).toFixed(2) + `+0.5); return t.rgb*t.rgb*4.0; }
+` + RING_POST;
+const BAKE_MAIN = `
+uniform float uSide;
+varying vec2 vUv;
+void main(){
+  vec2 p=(vUv*2.0-1.0)*` + BAKE_R.toFixed(2) + `;
+  vec3 c=uSide<0.5 ? imgA(p) : imgB(p);
+  gl_FragColor=vec4(sqrt(clamp(c,0.0,4.0)*0.25),1.0);
+}
+`;
 const cv = document.getElementById('c');
 const gl = cv.getContext('webgl', {antialias:false, alpha:false, powerPreference:'high-performance'});
-let pScene, pPost, pBg, pRing, us, up, ub, ur;
+let pScene, pPost, pBg, pRing, us, up, ub, ur, urHi, urLo, pRingLite = null, pBake = null, ubk, artTex = null, artFbo = null;
 let tex, fbo, sW = 1, sH = 1, gTex, gFbo, gDepth, gW = 1, gH = 1, triBuf, ringBuf, ringVerts = 0;
 
 function compile(type, src){
@@ -1329,16 +2168,16 @@ function setupTarget(t, w, h){
 }
 function resize(){
   const coarse = matchMedia('(pointer:coarse)').matches;
-  const dpr = Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2);
+  const dpr = Math.min(window.devicePixelRatio || 1, G.low ? 1 : coarse ? 1.5 : 2);
   const w = Math.max(1, Math.round(innerWidth * dpr)), h = Math.max(1, Math.round(innerHeight * dpr));
   cv.width = w; cv.height = h;
-  let k = Math.min(1, Math.sqrt((coarse ? 360000 : 700000) / (w * h)));
+  let k = Math.min(1, Math.sqrt((G.low ? 110000 : coarse ? 360000 : 700000) / (w * h)));
   sW = Math.max(1, Math.round(w * k)); sH = Math.max(1, Math.round(h * k));
   if(!tex){ tex = gl.createTexture(); fbo = gl.createFramebuffer(); gTex = gl.createTexture(); gFbo = gl.createFramebuffer(); gDepth = gl.createRenderbuffer(); }
   setupTarget(tex, sW, sH);
   gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
-  k = Math.min(1, Math.sqrt((coarse ? 1100000 : 2400000) / (w * h)));
+  k = Math.min(1, Math.sqrt((G.low ? (coarse ? 300000 : 600000) : coarse ? 1100000 : 2400000) / (w * h)));
   gW = Math.max(1, Math.round(w * k)); gH = Math.max(1, Math.round(h * k));
   setupTarget(gTex, gW, gH);
   gl.bindRenderbuffer(gl.RENDERBUFFER, gDepth);
@@ -1348,6 +2187,42 @@ function resize(){
   gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, gDepth);
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   viewMetrics();
+}
+const RING_U = ['uVP','uRot','uRad','uThick','uS1','uS2','uT','uType','uLock','uSel','uPulse','uJoinP','uFuse','uDimArt','uWin','uAxis','uCam','uL'];
+const progCache = new Map();
+function cached(key, make){
+  if(progCache.has(key)){ const v = progCache.get(key); progCache.delete(key); progCache.set(key, v); return v; }
+  const v = make(); progCache.set(key, v);
+  while(progCache.size > 6){ const [k0, v0] = progCache.entries().next().value; gl.deleteProgram(v0.p); progCache.delete(k0); }
+  return v;
+}
+function ringProg(a, b){ return cached('r' + a + b, () => { const p = program(VS_RING, ringSrc(a, b)); return { p, u: uniforms(p, RING_U) }; }); }
+function bakeProg(a, b){ return cached('b' + a + b, () => { const p = program(VS, RING_PRE + artSrc(a, b) + BAKE_MAIN); return { p, u: uniforms(p, ['uS1', 'uS2', 'uDimArt', 'uT', 'uSide']) }; }); }
+function ensureLite(){
+  if(pRingLite) return;
+  pRingLite = program(VS_RING, FS_RING_LITE);
+  urLo = uniforms(pRingLite, RING_U.concat(['uArtA', 'uArtB']));
+}
+function bakeArt(){
+  ensureLite();
+  const S = matchMedia('(pointer:coarse)').matches ? 512 : 1024;
+  if(!artTex){ artTex = [gl.createTexture(), gl.createTexture()]; artFbo = gl.createFramebuffer(); artTex.forEach(t => setupTarget(t, S, S)); }
+  gl.disable(gl.DEPTH_TEST);
+  const bp = bakeProg(G.style[0], G.style[1]); ubk = bp.u;
+  gl.useProgram(bp.p); bindTri();
+  gl.uniform4f(ubk.uS1, G.seed[0], G.seed[1], G.seed[2], G.seed[3]);
+  gl.uniform4f(ubk.uS2, G.seed[4], G.seed[5], G.seed[6], G.seed[7]);
+  gl.uniform1f(ubk.uDimArt, dimOf(G.level));
+  gl.uniform1f(ubk.uT, 0);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, artFbo);
+  gl.viewport(0, 0, S, S);
+  for(let side = 0; side < 2; side++){
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, artTex[side], 0);
+    gl.uniform1f(ubk.uSide, side);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  G.bakedFor = G.style.join() + G.seed.join();
 }
 function bindTri(){ gl.bindBuffer(gl.ARRAY_BUFFER, triBuf); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0); }
 function bindRing(){ gl.bindBuffer(gl.ARRAY_BUFFER, ringBuf); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0); }
@@ -1414,6 +2289,7 @@ function draw(t, fade, flash){
   gl.uniform1f(up.uT, t);
   gl.uniform1f(up.uFade, fade);
   gl.uniform1f(up.uFlash, flash);
+  gl.uniform1f(up.uLow, G.low ? 1 : 0);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
 
@@ -1854,6 +2730,9 @@ const wrap = a => a - TAU * Math.round(a / TAU);
 const ease = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
 const G = { mode:'boot', level:1, maxLevel:1, n:5, w:0.176, rings:[], sel:-1, tol:0.2, seed:[0,0,0,0,0,0,0,0],
   psi:0, psiAnim:null, op:null, travel:null, menuK:0, menuDk:1, menuOff:0, yOff:0, dk:1, openK:0, warpK:0, flashK:0, cardShown:false, shuf:null, shufK:0, camT:0, style:[0,0], won:false, winT:0, cap:15, ppu:150, D:4, halfH:1, fadeT0:0, lastTap:{i:-1,t:0}, cam:null };
+let gfxPref = null;
+try { gfxPref = localStorage.getItem('helios-gfx'); } catch(e) {}
+G.low = gfxPref === 'low';
 try {
   G.maxLevel = Math.max(1, Math.min(LEVELS, parseInt(localStorage.getItem('helios-max'), 10) || 1));
   G.level = G.maxLevel;
@@ -1882,7 +2761,7 @@ function startLevel(L){
   G.tol = Math.max(4, 12 - (L - 1) * 0.45) * Math.PI / 180;
   const rnd = mulberry32(L * 7919 + 13);
   G.seed = Array.from({length: 8}, () => rnd());
-  G.style = [(L - 1) % 8, ((L - 1) * 5 + 3 + Math.floor((L - 1) / 8)) % 8];
+  G.style = artFor(L);
   // each ring gets a random orientation relative to the ring around it (flips favoured)
   const rel = [];
   for(let i = 0; i < G.n; i++){
@@ -2126,6 +3005,7 @@ function drawPiece(r0, r1, thick, type, M, lock, sel, pulse, axis, fuse, joinP){
 }
 
 function renderGame(now){
+  if(G.low && G.bakedFor !== G.style.join() + G.seed.join()) bakeArt();
   const t = (now / 1000) % 1000;
   const cam = G.cam = gameCam(now);
   const winK = G.won ? Math.min(1, (now - G.winT) / 800) : 0;
@@ -2145,16 +3025,24 @@ function renderGame(now){
   gl.uniform1f(ub.uLocal, ((G.level - 1) % 10) / 9);
   gl.uniform1f(ub.uWarp, G.warpK);
   gl.uniform1f(ub.uOff, G.yOff / 2);
+  gl.uniform1f(ub.uLow, G.low ? 1 : 0);
   gl.uniform1f(ub.uEl, cam.el);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 
   gl.enable(gl.DEPTH_TEST);
-  gl.useProgram(pRing);
+  const rp = G.low ? null : ringProg(G.style[0], G.style[1]);
+  ur = G.low ? urLo : rp.u;
+  gl.useProgram(G.low ? pRingLite : rp.p);
+  if(G.low){
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, artTex[0]); gl.uniform1i(ur.uArtA, 1);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, artTex[1]); gl.uniform1i(ur.uArtB, 2);
+    gl.activeTexture(gl.TEXTURE0);
+  }
   bindRing();
   gl.uniformMatrix4fv(ur.uVP, false, cam.VP);
   gl.uniform4f(ur.uS1, G.seed[0], G.seed[1], G.seed[2], G.seed[3]);
   gl.uniform4f(ur.uS2, G.seed[4], G.seed[5], G.seed[6], G.seed[7]);
-  gl.uniform2f(ur.uStyle, G.style[0], G.style[1]);
+  gl.uniform1f(ur.uDimArt, dimOf(G.level));
   gl.uniform1f(ur.uT, t);
   gl.uniform1f(ur.uWin, winK);
   gl.uniform3fv(ur.uCam, cam.eye);
@@ -2200,6 +3088,7 @@ function renderGame(now){
   gl.uniform1f(up.uT, t);
   gl.uniform1f(up.uFade, fade);
   gl.uniform1f(up.uFlash, flash);
+  gl.uniform1f(up.uLow, G.low ? 1 : 0);
   gl.uniform1f(up.uVig, 1);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
@@ -2389,6 +3278,22 @@ $('wNext').addEventListener('click', () => travelTo(Math.min(LEVELS, G.level + 1
 $('bMusic').addEventListener('click', () => setMusic(!MZ.on));
 $('mMusic').addEventListener('click', () => setMusic(!MZ.on));
 $('mMap').addEventListener('click', openMap);
+$('mGfx').addEventListener('click', () => setLow(!G.low, false));
+function setLow(on, auto){
+  G.low = on;
+  try { localStorage.setItem('helios-gfx', on ? 'low' : 'high'); } catch(e) {}
+  gfxPref = on ? 'low' : 'high';
+  if(on) ensureLite();
+  G.bakedFor = null;
+  resize(); menuLayout(); gfxUi();
+  if(auto){
+    const n = $('note');
+    n.textContent = 'LOW GRAPHICS ON FOR SMOOTHER PLAY · CHANGE IT IN THE MENU';
+    n.classList.add('on'); clearTimeout(n._t); n._t = setTimeout(() => n.classList.remove('on'), 6000);
+  }
+}
+function gfxUi(){ $('mGfx').textContent = '✦ Graphics: ' + (G.low ? 'Low' : 'High'); }
+gfxUi();
 $('mapClose').addEventListener('click', closeMap);
 
 function travelTo(L){
@@ -2499,9 +3404,18 @@ function enterMenuKeep(){
   menuLayout();
 }
 
+const perf = [];
 function loop(now){
   requestAnimationFrame(loop);
-  const dt = Math.min(0.05, Math.max(0, (now - lastNow) / 1000)); lastNow = now;
+  const raw = Math.max(0, (now - lastNow) / 1000), dt = Math.min(0.05, raw); lastNow = now;
+  // first run on a struggling device: drop to low graphics automatically
+  if(!gfxPref && !G.low && pScene && (G.mode === 'intro' || G.mode === 'menu' || G.mode === 'game') && raw > 0 && raw < 1){
+    perf.push(raw);
+    if(perf.length >= 15){
+      const m = perf.slice(3).sort((a, b) => a - b)[6];
+      if(m > 0.045) setLow(true, true); else gfxPref = 'ok';
+    }
+  }
   if(!pScene) return;
   if(G.mode === 'intro') introFrame(now);
   else if(G.mode === 'menu' || G.mode === 'game'){ updateGame(now, dt); renderGame(now); }
@@ -2525,11 +3439,10 @@ try {
   pScene = program(VS, FS_SCENE);
   pPost = program(VS, FS_POST);
   pBg = program(VS, FS_BG);
-  pRing = program(VS_RING, FS_RING);
   us = uniforms(pScene, ['uRes', 'uT', 'uImp', 'uRo', 'uTa', 'uSun', 'uNight']);
-  up = uniforms(pPost, ['uTex', 'uRes', 'uSun', 'uSunVis', 'uT', 'uFade', 'uFlash', 'uVig']);
-  ub = uniforms(pBg, ['uRes', 'uT', 'uPsi', 'uWin', 'uPR', 'uEl', 'uDim', 'uLocal', 'uWarp', 'uOff']);
-  ur = uniforms(pRing, ['uVP','uRot','uRad','uThick','uS1','uS2','uT','uType','uLock','uSel','uPulse','uJoinP','uFuse','uStyle','uWin','uAxis','uCam','uL']);
+  up = uniforms(pPost, ['uTex', 'uRes', 'uSun', 'uSunVis', 'uT', 'uFade', 'uFlash', 'uVig', 'uLow']);
+  ub = uniforms(pBg, ['uRes', 'uT', 'uPsi', 'uWin', 'uPR', 'uEl', 'uDim', 'uLocal', 'uWarp', 'uOff', 'uLow']);
+  if(G.low) ensureLite();
   resize();
   startLevel(G.level);
   try { const AC = window.AudioContext || window.webkitAudioContext; if(AC){ ac = new AC(); ac.resume(); } } catch(e) {}
